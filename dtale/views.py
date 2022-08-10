@@ -2312,6 +2312,13 @@ def rename_col(data_id):
     global_state.set_settings(data_id, curr_settings)
     return jsonify(success=True)
 
+@dtale.route("/last-clicked-cell/<data_id>")
+@exception_decorator
+def last_clicked_cell(data_id):
+    column = get_str_arg(request, "col")
+    row_index = get_int_arg(request, "rowIndex")
+    global_state.set_last_clicked_cell(data_id, (column, row_index))
+    return jsonify(success=True)
 
 @dtale.route("/edit-cell/<data_id>")
 @exception_decorator

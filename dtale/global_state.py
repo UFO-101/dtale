@@ -46,6 +46,7 @@ class DtaleInstance(object):
     _context_variables = None
     _history = None
     _settings = None
+    _last_clicked_cell = None
     _name = ""
 
     def __init__(self, data):
@@ -88,6 +89,10 @@ class DtaleInstance(object):
         return self._settings
 
     @property
+    def last_clicked_cell(self):
+        return self._last_clicked_cell
+
+    @property
     def is_xarray_dataset(self):
         if self._dataset is not None:
             return True
@@ -128,6 +133,10 @@ class DtaleInstance(object):
     @settings.setter
     def settings(self, settings):
         self._settings = settings
+
+    @last_clicked_cell.setter
+    def last_clicked_cell(self, last_clicked_cell):
+        self._last_clicked_cell = last_clicked_cell
 
 
 class DefaultStore(object):
@@ -217,6 +226,9 @@ class DefaultStore(object):
     def get_settings(self, data_id):
         return self.get_data_inst(data_id).settings
 
+    def get_last_clicked_cell(self, data_id):
+        return self.get_data_inst(data_id).last_clicked_cell
+
     def get_metadata(self, data_id):
         return self.get_data_inst(data_id).metadata
 
@@ -269,6 +281,12 @@ class DefaultStore(object):
         data_id = int(data_id)
         data_inst = self.get_data_inst(data_id)
         data_inst.settings = val
+        self._data_store[data_id] = data_inst
+
+    def set_last_clicked_cell(self, data_id, val):
+        data_id = int(data_id)
+        data_inst = self.get_data_inst(data_id)
+        data_inst.last_clicked_cell = val
         self._data_store[data_id] = data_inst
 
     def set_metadata(self, data_id, val):

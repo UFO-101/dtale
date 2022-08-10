@@ -16,10 +16,11 @@ import * as chartActions from '../redux/actions/charts';
 import { AppState, Popups, PopupType, RangeState } from '../redux/state/AppState';
 
 import { ColumnDef, DataViewerData, StringColumnFormat } from './DataViewerState';
-import { convertCellIdxToCoords, getCell } from './gridUtils';
+import { convertCellIdxToCoords, getCell, getCol } from './gridUtils';
 import { MeasureText } from './MeasureText';
 import { MenuTooltip } from './menu/MenuTooltip';
 import { buildCopyText, buildRangeState, buildRowCopyText, CopyText, toggleSelection } from './rangeSelectUtils';
+import { lastClickedCell } from './serverStateManagement';
 import { SidePanel } from './side/SidePanel';
 import * as panelUtils from './side/sidePanelUtils';
 
@@ -209,6 +210,10 @@ const GridEventHandler: React.FC<GridEventHandlerProps & WithTranslation> = ({ c
     setRibbonVisibility(false);
     // check for range selected
     const cellIdx = (e.target as any).attributes?.cell_idx?.nodeValue;
+    const coords = convertCellIdxToCoords(cellIdx);
+
+    const columnDef: ColumnDef | undefined = getCol(coords[0], columns, settings.backgroundMode);
+    lastClickedCell(dataId, coords[1], columnDef?.name);
     if (e.shiftKey) {
       if (cellIdx && cellIsNotOnEdge(cellIdx)) {
         handleRangeSelect(cellIdx);
@@ -222,7 +227,6 @@ const GridEventHandler: React.FC<GridEventHandlerProps & WithTranslation> = ({ c
       }
       return;
     } else if (cellIdx?.startsWith('0|')) {
-      const coords = convertCellIdxToCoords(cellIdx);
       updateRangeState(buildRangeState({ selectedRow: coords[1] }));
       return;
     }

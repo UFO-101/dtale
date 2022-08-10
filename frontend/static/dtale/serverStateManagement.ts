@@ -181,6 +181,11 @@ export const updateFormats = async (
     }),
   );
 
+export const lastClickedCell = async (dataId: string, rowIndex: number, col?: string): BaseReturn =>
+  await baseGetter(
+    buildURLString(`last-clicked-cell/${dataId}`, { col: `${col ? col : ''}`, rowIndex: `${rowIndex}` }),
+  );
+
 export const editCell = async (dataId: string, col: string, rowIndex: number, updated: string): BaseReturn =>
   await baseGetter(buildURLString(`edit-cell/${dataId}`, { col, rowIndex: `${rowIndex}`, updated }));
 
