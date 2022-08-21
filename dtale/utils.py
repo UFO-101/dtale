@@ -470,7 +470,7 @@ def sort_df_for_grid(df, params):
         for col, dir in params["sort"]:
             cols.append(col)
             dirs.append(dir == "ASC")
-        return df.sort_values(cols, ascending=dirs)
+        return df.sort_values(cols, ascending=dirs, kind="stable")
     return df.sort_index()
 
 
