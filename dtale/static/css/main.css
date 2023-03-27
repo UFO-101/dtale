@@ -7929,6 +7929,10 @@ a.text-dark:focus, a.text-dark:hover {
   border-width: 0 5px 5px;
 }
 
+.Select .Select__indicators {
+  height: inherit;
+}
+
 .is-searchable > .Select__control--is-focused,
 .is-searchable > .Select-control--is-focused {
   cursor: text;
@@ -10409,6 +10413,12 @@ li.hoverable.clickable-menu-item:hover button {
     min-width: 20em;
     right: unset;
     left: -2em;
+}
+.hoverable__content.export-charts {
+    min-width: 5em;
+    width: 5em;
+    right: unset;
+    left: -3em;
 }
 .hoverable__content.build-code {
     width: auto;

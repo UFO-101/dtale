@@ -56,7 +56,8 @@
     "Feature Analysis": "Feature Analysis",
     "Time Series Analysis": "Time Series Analysis",
     "gage_rnr": "Gage R & R",
-    "Vertical Column Headers": "Vertical Column Headers"
+    "Vertical Column Headers": "Vertical Column Headers",
+    "Hide Header Editor": "Hide Header Editor"
   },
   "menu_description": {
     "describe": "Describe column's values (Top unique values, Min, Max, Sum, STD, Var,...)",
@@ -78,6 +79,7 @@
     "shutdown": "Close D-Tale and all other open datasets without save. Do you want to export DataFrame?",
     "logout": "Authentication is activated on D-Tale. This will log you out of your current session and redirect you to the login screen.",
     "editing": "Update cells to anything you'd like. Press \"Enter\" to confirm or \"Esc\" to exit. Invalid types will throw errors. Protected values are \"nan\" & \"inf\".",
+    "bool_editing": "Update cells to anything you'd like. Press \"Enter\" to confirm or \"Esc\" to exit. Press \"n\" to set value to \"nan\".",
     "xarray_conversion": "Convert your pandas.Dataframe to an xarray.Dataset by selecting columns as an index. Once this is complete you'll be able to view different slices of your data by choosing index values.",
     "upload": "Load CSV/TSV files, CSV/TSV/JSON from the web or sample datasets to D-Tale using pandas.read_csv(), pandas.read_json() or customized loaders.",
     "duplicates": "Remove duplicate columns/values from your data as well as extract duplicates out into separate instances.",
@@ -103,7 +105,8 @@
     "corr_analysis": "Remove columns (features) based on their correlations with other columns in your dataset. If there is a strong correlation amongst some columns (features) then maybe they aren't relevant to keep around?",
     "gage_rnr": "A Gage R&R is a scientific study that falls under the larger topic of Measurement System Analysis (MSA). When you observe any measurement, it will typically vary from time to time. That variation in the observed measurement will be the result of the variation in the object that you are measuring plus the variation of the measuring device.",
     "vertical_headers": "Rotate column headers vertically",
-    "timeseries_analysis": "Analyze time series data using different \"statsmodels.tsa\" functions"
+    "timeseries_analysis": "Analyze time series data using different \"statsmodels.tsa\" functions",
+    "hide_header_editor": "If checked, hides the header editor when editing cells in the grid"
   },
   "column_menu": {
     "Asc": "Asc",
@@ -463,7 +466,8 @@
     "context_variables_des3": "They can be referenced in filters by prefixing the variable name with '@', ",
     "context_variables_des4": "to only show rows where 'Col' is in list 'foo'",
     "No context variables are defined.": "No context variables are defined",
-    "Context Variables": "Context Variables"
+    "Context Variables": "Context Variables",
+    "Query Engine": "Query Engine"
   },
   "popup": {
     "Yes/No": "Yes/No",
@@ -570,7 +574,8 @@
     "Missing a value(s) selection!": "Missing a value(s) selection!",
     "Col": "Col",
     "Offset": "Offset",
-    "Examples of pandas offset aliases found ": "Examples of pandas offset aliases found "
+    "Examples of pandas offset aliases found ": "Examples of pandas offset aliases found ",
+    "dropna": "Drop NaN values"
   },
   "replacement": {
     "Inplace": "Inplace",
@@ -931,7 +936,9 @@
     "Clear Filters": "Clear Filters",
     "Drop Filtered Rows": "Drop Filtered Rows",
     "Invert Filter": "Invert Filter",
-    "Move Filters To Custom": "Move Filters To Custom"
+    "Move Filters To Custom": "Move Filters To Custom",
+    "Hide Filtered Rows": "Hide Filtered Rows",
+    "Highlight Filtered Rows": "Highlight Filtered Rows"
   },
   "side": {
     "Close": "Close",

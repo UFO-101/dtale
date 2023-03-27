@@ -1,5 +1,57 @@
 ## Changelog
 
+### 2.13.0 (2023-3-3)
+* [#685](https://github.com/man-group/dtale/issues/685): Histogram chart builder
+* [#730](https://github.com/man-group/dtale/issues/730): fix for exporting charts with multiple y-axis
+
+### 2.12.3 (2023-2-22)
+* Updated D-Tale streamlit startup command to have a wider exception handler for importing `streamlit.server`
+
+### 2.12.2 (2023-2-7)
+* [#726](https://github.com/man-group/dtale/issues/726): updated `global_state.set_app_settings` to persist updates to instance settings
+
+### 2.12.1 (2023-2-2)
+* [#726](https://github.com/man-group/dtale/issues/726): fix for turning off header editor using `dtale.show`
+
+### 2.12.0 (2023-2-2)
+* [#726](https://github.com/man-group/dtale/issues/726): added option to turn off header editor
+* [#700](https://github.com/man-group/dtale/issues/700): export all charts in one HTML file
+* [#592](https://github.com/man-group/dtale/issues/592): highlight rows of a dataframe filter
+* [#647](https://github.com/man-group/dtale/issues/647): added option to auto-hide columns consisting entirely of NaN values
+
+### 2.11.0 (2023-1-23)
+* [#659](https://github.com/man-group/dtale/issues/659): editing cells with predefined values
+* [#692](https://github.com/man-group/dtale/issues/692): updated dash to throw regular exceptions instead of 204s when in Google Colab
+
+### 2.10.0 (2023-1-11)
+* Updated usage to dash_bootstrap_components.Checkbox to be backwards compatible
+
+### 2.9.2 (2023-1-11)
+* [#719](https://github.com/man-group/dtale/issues/719): allow NaN values in groupby
+* Updated cell editor and header editor to use select dropdown on category columns
+* [#708](https://github.com/man-group/dtale/issues/708): render boolean column values as checkboxes)
+
+### 2.9.1 (2022-12-28)
+* [#709](https://github.com/man-group/dtale/issues/709): added additional VSCode check for VSCODE_INJECTION
+* [#714](https://github.com/man-group/dtale/issues/714): pushed plotly legend below x-axis labels
+* [#711](https://github.com/man-group/dtale/issues/711): fix for predefined filters to return numbers to the backend when necessary
+* frontend package upgrades:
+  * upgraded to latest version of react
+  * dropped enzyme in favor of @testing-library/react
+  * upgraded chart.js
+
+### 2.9.0 (2022-11-4)
+* [#703](https://github.com/man-group/dtale/issues/703): fix for matplotlib imports
+* [#704](https://github.com/man-group/dtale/issues/704): fix for replacing nan with zero
+* [#677](https://github.com/man-group/dtale/issues/677): include row dropping in history
+
+### 2.8.1 (2022-9-9)
+* Added DESCRIPTION.md to MANIFEST.in
+
+### 2.8.0 (2022-9-8)
+* [#693](https://github.com/man-group/dtale/issues/693): updated streamlit script to work with 1.12.0
+* [#694](https://github.com/man-group/dtale/issues/694): shortened setup.py long_description to help with hadoop downloads
+
 ### 2.7.1 (2022-8-7)
 * updating pillow dependency in python 3.6
 

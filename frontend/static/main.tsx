@@ -1,5 +1,5 @@
 import * as React from 'react';
-import ReactDOM from 'react-dom';
+import * as ReactDOMClient from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { Store } from 'redux';
 
@@ -42,6 +42,7 @@ let storeBuilder: () => Store = () => {
   actions.loadBackgroundMode(store);
   actions.loadHideShutdown(store);
   actions.loadAllowCellEdits(store);
+  actions.loadHideHeaderEditor(store);
   return store;
 };
 if (pathname.indexOf('/dtale/popup') === 0) {
@@ -125,7 +126,8 @@ if (pathname.indexOf('/dtale/popup') === 0) {
   }
   const store = storeBuilder();
   store.getState().chartData = chartData;
-  ReactDOM.render(<Provider store={store}>{rootNode}</Provider>, document.getElementById('popup-content'));
+  const root = ReactDOMClient.createRoot(document.getElementById('popup-content')!);
+  root.render(<Provider store={store}>{rootNode}</Provider>);
 } else if (pathname.startsWith('/dtale/code-popup')) {
   require('./dtale/DataViewer.css');
   let title: string;
@@ -141,19 +143,19 @@ if (pathname.indexOf('/dtale/popup') === 0) {
   if (titleElement) {
     titleElement.innerHTML = title;
   }
-  ReactDOM.render(body, document.getElementById('popup-content'));
+  const root = ReactDOMClient.createRoot(document.getElementById('popup-content')!);
+  root.render(body);
 } else {
   const store = storeBuilder();
-  store.dispatch(actions.init());
   if (store.getState().openPredefinedFiltersOnStartup) {
     store.dispatch(actions.openPredefinedFilters());
   } else if (store.getState().openCustomFilterOnStartup) {
     store.dispatch(actions.openCustomFilter());
   }
-  ReactDOM.render(
+  const root = ReactDOMClient.createRoot(document.getElementById('content')!);
+  root.render(
     <Provider store={store}>
       <DataViewer />
     </Provider>,
-    document.getElementById('content'),
   );
 }

@@ -3,7 +3,16 @@ import { AnyAction, Store } from 'redux';
 import * as serverState from '../../dtale/serverStateManagement';
 import { AppState, QueryEngine, SidePanelType } from '../state/AppState';
 
-import { ActionType, AppActions, InitAction, SidePanelAction, UpdateXarrayDimAction } from './AppActions';
+import {
+  ActionType,
+  AppActions,
+  InitAction,
+  SetQueryEngineAction,
+  SidePanelAction,
+  ToggleColumnAction,
+  UpdateShowAllHeatmapColumnsAction,
+  UpdateXarrayDimAction,
+} from './AppActions';
 
 export const init = (): InitAction => ({ type: ActionType.INIT_PARAMS });
 
@@ -28,6 +37,14 @@ export const loadAllowCellEdits = (store: Store<AppState, AnyAction>): void => {
   store.dispatch({ type: ActionType.UPDATE_ALLOW_CELL_EDITS, value: settings.allow_cell_edits ?? allowCellEdits });
 };
 
+export const loadHideHeaderEditor = (store: Store<AppState, AnyAction>): void => {
+  const { settings, hideHeaderEditor } = store.getState();
+  store.dispatch({
+    type: ActionType.UPDATE_HIDE_HEADER_EDITOR,
+    value: hideHeaderEditor ?? settings.hide_header_editor ?? hideHeaderEditor,
+  });
+};
+
 export const openCustomFilter = (): SidePanelAction => ({
   type: ActionType.SHOW_SIDE_PANEL,
   view: SidePanelType.FILTER,
@@ -38,10 +55,11 @@ export const openPredefinedFilters = (): SidePanelAction => ({
   view: SidePanelType.PREDEFINED_FILTERS,
 });
 
-export const toggleColumnMenu =
-  (colName: string, headerRef: HTMLDivElement): AppActions<void> =>
-  (dispatch) =>
-    dispatch({ type: ActionType.TOGGLE_COLUMN_MENU, colName, headerRef });
+export const toggleColumnMenu = (colName: string, headerRef: HTMLDivElement): ToggleColumnAction => ({
+  type: ActionType.TOGGLE_COLUMN_MENU,
+  colName,
+  headerRef,
+});
 
 export const hideColumnMenu =
   (colName: string): AppActions<void> =>
@@ -75,10 +93,10 @@ export const convertToXArray =
     callback();
   };
 
-export const setQueryEngine =
-  (engine: QueryEngine): AppActions<void> =>
-  (dispatch) =>
-    dispatch({ type: ActionType.SET_QUERY_ENGINE, engine });
+export const setQueryEngine = (engine: QueryEngine): SetQueryEngineAction => ({
+  type: ActionType.SET_QUERY_ENGINE,
+  engine,
+});
 
 export const isPopup = (): boolean => !!window.location.pathname?.startsWith('/dtale/popup');
 
@@ -146,7 +164,7 @@ export const clearMaxHeight = (): AppActions<void> => (dispatch) => {
   dispatch({ type: ActionType.DATA_VIEWER_UPDATE, update: { type: 'update-max-height', height: null } });
 };
 
-export const updateShowAllHeatmapColumns =
-  (showAllHeatmapColumns: boolean): AppActions<void> =>
-  (dispatch) =>
-    dispatch({ type: ActionType.UPDATE_SHOW_ALL_HEATMAP_COLUMNS, showAllHeatmapColumns });
+export const updateShowAllHeatmapColumns = (showAllHeatmapColumns: boolean): UpdateShowAllHeatmapColumnsAction => ({
+  type: ActionType.UPDATE_SHOW_ALL_HEATMAP_COLUMNS,
+  showAllHeatmapColumns,
+});

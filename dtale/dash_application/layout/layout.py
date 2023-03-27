@@ -6,6 +6,7 @@ import dash_daq as daq
 import os
 import plotly
 from pkg_resources import parse_version
+from six import PY3
 
 from dtale.dash_application import dcc, html
 import dtale.dash_application.custom_geojson as custom_geojson
@@ -224,6 +225,7 @@ CHARTS = [
 if has_dashbio():
     CHARTS.append(dict(value="clustergram"))
 CHARTS.append(dict(value="pareto"))
+CHARTS.append(dict(value="histogram"))
 
 CHART_INPUT_SETTINGS = {
     "line": dict(
@@ -329,6 +331,18 @@ CHART_INPUT_SETTINGS = {
         treemap_group=dict(display=False),
         funnel_group=dict(display=False),
         clustergram_group=dict(display=False),
+    ),
+    "histogram": dict(
+        x=dict(display=False),
+        y=dict(display=False),
+        z=dict(display=False),
+        group=dict(display=False),
+        map_group=dict(display=False),
+        cs_group=dict(display=False),
+        treemap_group=dict(display=False),
+        funnel_group=dict(display=False),
+        clustergram_group=dict(display=False),
+        histogram_group=dict(display=True),
     ),
 }
 LOAD_TYPES = ["random", "head", "tail"]
@@ -901,6 +915,44 @@ def build_label_value_store(prop, inputs):
     )
 
 
+def bootstrap_checkbox_prop():
+    if parse_version(dbc.__version__) >= parse_version("1.0.0"):
+        return "value"
+    return "checked"
+
+
+def build_dropna(dropna, prop=None):
+    if PY3:
+        checkbox_kwargs = dict(
+            id="{}-dropna-checkbox".format(prop)
+            if prop is not None
+            else "dropna-checkbox",
+            style=dict(width="inherit"),
+        )
+        checkbox_kwargs[bootstrap_checkbox_prop()] = True if dropna is None else dropna
+        return build_input(
+            text("Dropna"),
+            html.Div(
+                dbc.Checkbox(**checkbox_kwargs),
+                className="checkbox-wrapper",
+            ),
+            className="col-auto",
+            id="{}-dropna-input".format(prop) if prop is not None else "dropna-input",
+        )
+    return build_input(
+        text("Dropna"),
+        dcc.Input(
+            id="{}-dropna-checkbox".format(prop)
+            if prop is not None
+            else "dropna-checkbox",
+            type="hidden",
+            value=True if dropna is None else dropna,
+        ),
+        id="{}-dropna-input".format(prop) if prop is not None else "dropna-input",
+        style={"display": "none"},
+    )
+
+
 def build_label_value_inputs(
     prop,
     inputs,
@@ -911,16 +963,17 @@ def build_label_value_inputs(
     all_option=False,
 ):
     show_inputs = inputs.get("chart_type") == prop
-    props = ["{}_value", "{}_label", "{}_group"]
-    selected_value, selected_label, selected_group = (
+    props = ["{}_value", "{}_label", "{}_group", "{}_dropna"]
+    selected_value, selected_label, selected_group, dropna = (
         inputs.get(p.format(prop)) for p in props
     )
-    (value_options, label_options,) = build_label_value_options(
+    all_options = build_label_value_options(
         df,
         selected_value=selected_value,
         selected_label=selected_label,
         all_value=multi_value and all_option,
     )
+    value_options, label_options = all_options
     return html.Div(
         [
             build_input(
@@ -962,6 +1015,7 @@ def build_label_value_inputs(
                 className="col",
                 id="{}-group-input".format(prop),
             ),
+            build_dropna(dropna, prop),
         ],
         id="{}-inputs".format(prop),
         className="row charts-filters",
@@ -989,7 +1043,7 @@ def build_funnel_inputs(inputs, df, group_options):
     )
 
 
-def build_pareto_options(df, x=None, bars=None, line=None):
+def get_num_cols(df):
     dtypes = get_dtypes(df)
     cols = sorted(dtypes.keys())
     num_cols = []
@@ -998,6 +1052,13 @@ def build_pareto_options(df, x=None, bars=None, line=None):
         classification = classify_type(dtype)
         if classification in ["F", "I"]:
             num_cols.append(c)
+    return num_cols
+
+
+def build_pareto_options(df, x=None, bars=None, line=None):
+    dtypes = get_dtypes(df)
+    cols = sorted(dtypes.keys())
+    num_cols = get_num_cols(df)
 
     x_options = [build_option(c) for c in cols if c not in [bars, line]]
     bars_options = [build_option(c) for c in num_cols if c not in [x, line]]
@@ -1008,9 +1069,9 @@ def build_pareto_options(df, x=None, bars=None, line=None):
 
 def build_pareto_inputs(inputs, df, group_options):
     show_inputs = inputs.get("chart_type") == "pareto"
-    x, bars, line, sort, sort_dir, group = (
+    x, bars, line, sort, sort_dir, group, dropna = (
         inputs.get("pareto_{}".format(prop))
-        for prop in ["x", "bars", "line", "sort", "dir", "group"]
+        for prop in ["x", "bars", "line", "sort", "dir", "group", "dropna"]
     )
     x_options, bar_options, line_options, sort_options = build_pareto_options(
         df, x, bars, line
@@ -1086,8 +1147,71 @@ def build_pareto_inputs(inputs, df, group_options):
                 className="col",
                 id="pareto-group-input",
             ),
+            build_dropna(dropna, "pareto"),
         ],
         id="pareto-inputs",
+        style={} if show_inputs else {"display": "none"},
+        className="row p-0 charts-filters",
+    )
+
+
+def build_histogram_inputs(inputs, df, group_options):
+    show_inputs = inputs.get("chart_type") == "histogram"
+    col, histogram_type, bins, group = (
+        inputs.get("histogram_{}".format(prop))
+        for prop in ["col", "type", "bins", "group"]
+    )
+    col_options = get_num_cols(df)
+
+    return html.Div(
+        [
+            build_input(
+                text("Col"),
+                dcc.Dropdown(
+                    id="histogram-col-dropdown",
+                    options=col_options,
+                    value=col,
+                    style=dict(width="inherit"),
+                ),
+            ),
+            dcc.Tabs(
+                id="histogram-type-tabs",
+                value=histogram_type or "bins",
+                children=[
+                    build_tab(text("Bins"), "bins"),
+                    build_tab(text("Density"), "density"),
+                ],
+                style=dict(height="36px", width="10em"),
+            ),
+            build_input(
+                text("Bins"),
+                dcc.Input(
+                    id="histogram-bins-input",
+                    type="number",
+                    placeholder=text("Enter Bins"),
+                    className="form-control text-center",
+                    style={"lineHeight": "inherit"},
+                    value=bins or 5,
+                ),
+                id="histogram-bins-div",
+                className="col-md-1 pr-0",
+                style={} if histogram_type == "bins" else {"display": "none"},
+            ),
+            build_input(
+                text("Group"),
+                dcc.Dropdown(
+                    id="histogram-group-dropdown",
+                    options=group_options,
+                    multi=True,
+                    placeholder=text("Select Group(s)"),
+                    value=group,
+                    style=dict(width="inherit"),
+                ),
+                className="col",
+                id="histogram-group-input",
+            ),
+        ],
+        id="histogram-inputs",
         style={} if show_inputs else {"display": "none"},
         className="row p-0 charts-filters",
     )
@@ -1313,9 +1437,19 @@ def charts_layout(df, settings, **inputs):
     :type param: dict
     :return: dash markup
     """
-    chart_type, x, y, z, group, agg, load, load_type = (
+    chart_type, x, y, z, group, dropna, agg, load, load_type = (
         inputs.get(p)
-        for p in ["chart_type", "x", "y", "z", "group", "agg", "load", "load_type"]
+        for p in [
+            "chart_type",
+            "x",
+            "y",
+            "z",
+            "group",
+            "dropna",
+            "agg",
+            "load",
+            "load_type",
+        ]
     )
     loc_modes = loc_mode_info()
     y = y or []
@@ -1369,8 +1503,16 @@ def charts_layout(df, settings, **inputs):
         df, type=map_type, loc=loc, lat=lat, lon=lon, map_val=map_val
     )
     show_candlestick = chart_type == "candlestick"
-    cs_props = ["cs_x", "cs_open", "cs_close", "cs_high", "cs_low", "cs_group"]
-    cs_x, cs_open, cs_close, cs_high, cs_low, cs_group = (
+    cs_props = [
+        "cs_x",
+        "cs_open",
+        "cs_close",
+        "cs_high",
+        "cs_low",
+        "cs_group",
+        "cs_dropna",
+    ]
+    cs_x, cs_open, cs_close, cs_high, cs_low, cs_group, cs_dropna = (
         inputs.get(p) for p in cs_props
     )
     (
@@ -1462,6 +1604,20 @@ def charts_layout(df, settings, **inputs):
                     "pareto_sort",
                     "pareto_dir",
                     "pareto_group",
+                ]
+            },
+        ),
+        dcc.Store(
+            id="histogram-input-data",
+            data={
+                k: v
+                for k, v in inputs.items()
+                if k
+                in [
+                    "histogram_col",
+                    "histogram_type",
+                    "histogram_bins",
+                    "histogram_group",
                 ]
             },
         ),
@@ -1672,6 +1828,7 @@ def charts_layout(df, settings, **inputs):
                                         style=dict(width="inherit"),
                                     ),
                                     label_class="input-group-addon d-block pt-1 pb-0",
+                                    style=show_style(show_input("x")),
                                 ),
                                 build_input(
                                     text("Y"),
@@ -1733,6 +1890,7 @@ def charts_layout(df, settings, **inputs):
                                     id="group-input",
                                     style=show_style(show_input("group")),
                                 ),
+                                build_dropna(dropna),
                             ],
                             id="standard-inputs",
                             style={}
@@ -1904,6 +2062,7 @@ def charts_layout(df, settings, **inputs):
                                     className="col",
                                     id="map-group-input",
                                 ),
+                                build_dropna(inputs.get("map_dropna", True), "map"),
                             ],
                             id="map-inputs",
                             className="row charts-filters",
@@ -1974,6 +2133,9 @@ def charts_layout(df, settings, **inputs):
                                     className="col",
                                     id="candlestick-group-input",
                                 ),
+                                build_dropna(
+                                    inputs.get("cs_dropna", True), "candlestick"
+                                ),
                             ],
                             id="candlestick-inputs",
                             className="row charts-filters",
@@ -1990,6 +2152,7 @@ def charts_layout(df, settings, **inputs):
                             all_option=True,
                         ),
                         build_pareto_inputs(inputs, df, group_options),
+                        build_histogram_inputs(inputs, df, group_options),
                         html.Div(
                             [
                                 html.Div(
@@ -2130,6 +2293,10 @@ def charts_layout(df, settings, **inputs):
                                 ),
                             ],
                             className="row pt-3 pb-3 charts-filters",
+                            id="charts-filters-div",
+                            style={"display": "none"}
+                            if chart_type == "histogram"
+                            else {},
                         ),
                     ],
                     id="main-inputs",
@@ -2475,6 +2642,18 @@ def charts_layout(df, settings, **inputs):
                     text("save_msg"),
                     "",
                     top="120%",
+                ),
+                build_hoverable(
+                    html.A(
+                        html.I(className="fas fa-file-code fa-xl"),
+                        id="export-all-chart-btn",
+                        href="",
+                        className="export-chart-btn",
+                        style=dict(display="none"),
+                    ),
+                    "Export Charts",
+                    additional_classes="mt-auto mb-auto",
+                    hover_class="export-charts",
                 ),
             ],
             className="row pt-3 pb-5 charts-filters",

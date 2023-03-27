@@ -72,7 +72,7 @@ def test_display_page(unittest):
         response = c.post("/dtale/charts/_dash-update-component", json=params)
         resp_data = response.get_json()["response"]
         component_defs = resp_data["popup-content"]["children"]["props"]["children"]
-        x_dd = component_defs[20]["props"]["children"][0]
+        x_dd = component_defs[21]["props"]["children"][0]
         x_dd = x_dd["props"]["children"][0]
         x_dd = x_dd["props"]["children"][0]
         x_dd = x_dd["props"]["children"][0]
@@ -216,9 +216,9 @@ def test_input_changes(unittest):
                 "..input-data.data...x-dropdown.options...y-single-dropdown.options...y-multi-dropdown.options."
                 "..z-dropdown.options...group-dropdown.options...barsort-dropdown.options...yaxis-dropdown.options."
                 "..standard-inputs.style...map-inputs.style...candlestick-inputs.style...treemap-inputs.style."
-                "..funnel-inputs.style...clustergram-inputs.style...pareto-inputs.style...colorscale-input.style."
-                "..drilldown-input.style...lock-zoom-btn.style...open-extended-agg-modal.style."
-                "..selected-cleaners.children.."
+                "..funnel-inputs.style...clustergram-inputs.style...pareto-inputs.style...histogram-inputs.style."
+                "..colorscale-input.style...drilldown-input.style...lock-zoom-btn.style."
+                "..open-extended-agg-modal.style...selected-cleaners.children...charts-filters-div.style.."
             ),
             "changedPropIds": ["chart-tabs.value"],
             "inputs": [
@@ -244,6 +244,7 @@ def test_input_changes(unittest):
                 {"id": "load-input", "property": "value"},
                 {"id": "load-type-dropdown", "property": "value"},
                 {"id": "cleaners-dropdown", "property": "value"},
+                {"id": "dropna-checkbox", "property": "value"},
             ],
             "state": [
                 pathname,
@@ -263,6 +264,7 @@ def test_input_changes(unittest):
                 "z": None,
                 "group": "foo",
                 "group_val": [dict(foo="bar")],
+                "dropna": True,
                 "agg": "raw",
                 "window": None,
                 "rolling_comp": None,
@@ -348,6 +350,7 @@ def test_map_data(unittest):
                 },
                 {"id": "map-proj-dropdown", "property": "value", "value": None},
                 {"id": "map-group-dropdown", "property": "value", "value": None},
+                {"id": "map-dropna-checkbox", "property": "value", "value": True},
                 {"id": "geojson-dropdown", "property": "value", "value": None},
                 {"id": "featureidkey-dropdown", "property": "value", "value": None},
             ],
@@ -364,6 +367,7 @@ def test_map_data(unittest):
                 "map_val": None,
                 "scope": "world",
                 "proj": None,
+                "map_dropna": True,
             },
         )
 
@@ -392,8 +396,8 @@ def test_map_data(unittest):
         unittest.assertEqual(resp_data["map-lat-input"]["style"], {})
 
         params["inputs"][0]["value"] = "choropleth"
-        params["inputs"][-3]["value"] = "foo"
-        params["inputs"][-4]["value"] = "hammer"
+        params["inputs"][-4]["value"] = "foo"
+        params["inputs"][-5]["value"] = "hammer"
         response = c.post("/dtale/charts/_dash-update-component", json=params)
         resp_data = response.get_json()["response"]
         unittest.assertEqual(resp_data["map-loc-mode-input"]["style"], {})
@@ -449,6 +453,11 @@ def test_group_values(unittest):
                 },
                 {
                     "id": "pareto-group-dropdown",
+                    "property": "value",
+                    "value": None,
+                },
+                {
+                    "id": "histogram-group-dropdown",
                     "property": "value",
                     "value": None,
                 },
@@ -540,6 +549,7 @@ def test_main_input_styling(unittest):
                 ts_builder("funnel-input-data"),
                 ts_builder("clustergram-input-data"),
                 ts_builder("pareto-input-data"),
+                ts_builder("histogram-input-data"),
             ],
             "state": [
                 {
@@ -553,6 +563,7 @@ def test_main_input_styling(unittest):
                 {"id": "funnel-input-data", "property": "data", "value": {}},
                 {"id": "clustergram-input-data", "property": "data", "value": {}},
                 {"id": "pareto-input-data", "property": "data", "value": {}},
+                {"id": "histogram-input-data", "property": "data", "value": {}},
             ],
         }
         response = c.post("/dtale/charts/_dash-update-component", json=params)
@@ -632,7 +643,7 @@ def test_chart_type_changes():
             "..y-multi-input.style...y-single-input.style...z-input.style...group-input.style..."
             "rolling-inputs.style...cpg-input.style...cpy-input.style...barmode-input.style...barsort-input.style..."
             "top-bars-input.style...yaxis-input.style...animate-input.style...animate-by-input.style..."
-            "animate-by-dropdown.options...trendline-input.style.."
+            "animate-by-dropdown.options...trendline-input.style...dropna-input.style.."
         )
         inputs = {
             "id": "input-data",
@@ -1011,12 +1022,14 @@ def build_chart_params(
     clustergram_inputs={},
     pareto_inputs={},
     extended_aggregation=[],
+    histogram_inputs={},
 ):
     return build_dash_request(
         (
             "..chart-content.children...last-chart-input-data.data...range-data.data...chart-code.value..."
             "yaxis-type.children...load-clicks.data...save-btn.style...agg-dropdown.disabled..."
-            "extended-aggregation-tooltip.children...ext-agg-warning.style.."
+            "extended-aggregation-tooltip.children...ext-agg-warning.style...export-all-chart-btn.href..."
+            "export-all-chart-btn.style.."
         ),
         "input-data.modified_timestamp",
         [
@@ -1031,6 +1044,7 @@ def build_chart_params(
                 "funnel-input-data",
                 "clustergram-input-data",
                 "pareto-input-data",
+                "histogram-input-data",
                 "extended-aggregations",
             ]
         ]
@@ -1057,6 +1071,11 @@ def build_chart_params(
                 "property": "data",
                 "value": pareto_inputs,
             },
+            {
+                "id": "histogram-input-data",
+                "property": "data",
+                "value": histogram_inputs,
+            },
             {"id": "last-chart-input-data", "property": "data", "value": last_inputs},
             {"id": "auto-load-toggle", "property": "on", "value": True},
             {"id": "load-clicks", "property": "data", "value": 0},
@@ -1071,7 +1090,6 @@ def build_chart_params(
 
 @pytest.mark.unit
 def test_chart_building_nones():
-
     with app.test_client() as c:
         params = build_chart_params(c.port)
         response = c.post("/dtale/charts/_dash-update-component", json=params)
@@ -1159,6 +1177,7 @@ def test_chart_building_scatter():
             "y": ["b"],
             "z": None,
             "group": None,
+            "dropna": True,
             "agg": None,
             "window": None,
             "rolling_comp": None,
@@ -1296,6 +1315,7 @@ def test_chart_building_bar_and_popup(unittest):
                 "cpg": "false",
                 "cpy": "false",
                 "y": '["b", "c"]',
+                "yaxis": '{"type": "multi"}',
             },
         )
         unittest.assertEqual(
@@ -1304,7 +1324,7 @@ def test_chart_building_bar_and_popup(unittest):
             ]["layout"],
             {
                 "barmode": "group",
-                "legend": {"orientation": "h"},
+                "legend": {"orientation": "h", "y": -0.3},
                 "title": {"text": "b, c by a"},
                 "xaxis": {"tickformat": "0:g", "title": {"text": "a"}},
                 "yaxis": {"tickformat": "0:g", "title": {"text": "b"}},
@@ -1380,7 +1400,7 @@ def test_chart_building_bar_and_popup(unittest):
             ]["layout"],
             {
                 "barmode": "stack",
-                "legend": {"orientation": "h"},
+                "legend": {"orientation": "h", "y": -0.3},
                 "title": {"text": "b, c by a"},
                 "xaxis": {
                     "tickformat": "0:g",
@@ -1415,7 +1435,7 @@ def test_chart_building_bar_and_popup(unittest):
             ]["layout"],
             {
                 "barmode": "group",
-                "legend": {"orientation": "h"},
+                "legend": {"orientation": "h", "y": -0.3},
                 "title": {"text": "b, c by a"},
                 "xaxis": {
                     "tickmode": "array",
@@ -2058,6 +2078,11 @@ def test_candlestick_data(candlestick_data, unittest):
                     "property": "value",
                     "value": ["symbol"],
                 },
+                {
+                    "id": "candlestick-dropna-checkbox",
+                    "property": "value",
+                    "value": True,
+                },
             ],
             "state": [{"id": "data-tabs", "property": "value", "value": c.port}],
         }
@@ -2072,6 +2097,7 @@ def test_candlestick_data(candlestick_data, unittest):
                 "cs_high": "high",
                 "cs_low": "low",
                 "cs_group": ["symbol"],
+                "cs_dropna": True,
             },
         )
 
@@ -2143,6 +2169,11 @@ def test_treemap_data(treemap_data, unittest):
                     "property": "value",
                     "value": ["group"],
                 },
+                {
+                    "id": "treemap-dropna-checkbox",
+                    "property": "value",
+                    "value": True,
+                },
             ],
             "state": [{"id": "data-tabs", "property": "value", "value": c.port}],
         }
@@ -2154,6 +2185,7 @@ def test_treemap_data(treemap_data, unittest):
                 "treemap_value": "volume",
                 "treemap_label": "label",
                 "treemap_group": ["group"],
+                "treemap_dropna": True,
             },
         )
 
@@ -2299,6 +2331,11 @@ def test_funnel_data(treemap_data, unittest):
                     "value": ["group"],
                 },
                 {
+                    "id": "funnel-dropna-checkbox",
+                    "property": "value",
+                    "value": True,
+                },
+                {
                     "id": "funnel-stack-toggle",
                     "property": "on",
                     "value": False,
@@ -2314,6 +2351,7 @@ def test_funnel_data(treemap_data, unittest):
                 "funnel_value": "volume",
                 "funnel_label": "label",
                 "funnel_group": ["group"],
+                "funnel_dropna": True,
                 "funnel_stacked": False,
             },
         )
@@ -2348,6 +2386,11 @@ def test_clustergram_data(clustergram_data, unittest):
                     "property": "value",
                     "value": None,
                 },
+                {
+                    "id": "clustergram-dropna-checkbox",
+                    "property": "value",
+                    "value": True,
+                },
             ],
             "state": [{"id": "data-tabs", "property": "value", "value": c.port}],
         }
@@ -2356,6 +2399,7 @@ def test_clustergram_data(clustergram_data, unittest):
         unittest.assertEqual(
             resp_data["clustergram-input-data"]["data"],
             {
+                "clustergram_dropna": True,
                 "clustergram_value": ["mpg", "cyl"],
                 "clustergram_label": "model",
             },
@@ -2406,6 +2450,11 @@ def test_pareto_data(pareto_data, unittest):
                     "property": "value",
                     "value": None,
                 },
+                {
+                    "id": "pareto-dropna-checkbox",
+                    "property": "value",
+                    "value": True,
+                },
             ],
             "state": [{"id": "data-tabs", "property": "value", "value": c.port}],
         }
@@ -2419,6 +2468,7 @@ def test_pareto_data(pareto_data, unittest):
                 "pareto_line": "cum_pct",
                 "pareto_sort": None,
                 "pareto_dir": "DESC",
+                "pareto_dropna": True,
             },
         )
 
@@ -2453,6 +2503,85 @@ def test_chart_building_pareto(pareto_data):
             ]
             == "chart-1"
         )
+
+
+@pytest.mark.unit
+def test_histogram_data(test_data, unittest):
+    import dtale.views as views
+
+    with app.test_client() as c:
+        df, _ = views.format_data(test_data)
+        build_data_inst({c.port: df})
+        params = {
+            "output": "..histogram-input-data.data...histogram-col-dropdown.options...histogram-bins-div.style..",
+            "changedPropIds": ["histogram-col-dropdown.value"],
+            "inputs": [
+                {
+                    "id": "histogram-col-dropdown",
+                    "property": "value",
+                    "value": "foo",
+                },
+                {
+                    "id": "histogram-type-tabs",
+                    "property": "value",
+                    "value": "bins",
+                },
+                {
+                    "id": "histogram-bins-input",
+                    "property": "value",
+                    "value": "5",
+                },
+                {
+                    "id": "histogram-group-dropdown",
+                    "property": "value",
+                    "value": None,
+                },
+            ],
+            "state": [{"id": "data-tabs", "property": "value", "value": c.port}],
+        }
+        response = c.post("/dtale/charts/_dash-update-component", json=params)
+        resp_data = response.get_json()["response"]
+        unittest.assertEqual(
+            resp_data["histogram-input-data"]["data"],
+            {
+                "histogram_col": "foo",
+                "histogram_type": "bins",
+                "histogram_bins": "5",
+            },
+        )
+        unittest.assertEqual(
+            resp_data["histogram-col-dropdown"]["options"],
+            ["bar", "foo", "security_id"],
+        )
+
+
+@pytest.mark.unit
+def test_chart_building_histogram(test_data):
+    import dtale.views as views
+
+    with app.test_client() as c:
+        df, _ = views.format_data(test_data)
+        build_data_inst({c.port: df})
+        global_state.set_dtypes(c.port, views.build_dtypes_state(df))
+        inputs = {
+            "chart_type": "histogram",
+        }
+        chart_inputs = {}
+        histogram_inputs = {
+            "histogram_col": "foo",
+            "histogram_type": "bins",
+            "histogram_bins": "5",
+        }
+        params = build_chart_params(
+            c.port, inputs, chart_inputs, histogram_inputs=histogram_inputs
+        )
+        response = c.post("/dtale/charts/_dash-update-component", json=params)
+        resp_data = response.get_json()["response"]
+        chart_cfg = resp_data["chart-content"]["children"][0]["props"]["children"][1][
+            "props"
+        ]
+        assert chart_cfg["id"] == "chart-1"
+        assert len(chart_cfg["figure"]["data"][0]["x"]) == 5
 
 
 @pytest.mark.unit

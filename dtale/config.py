@@ -79,6 +79,13 @@ def load_app_settings(config):
     query_engine = get_config_val(
         config, curr_app_settings, "query_engine", section="app"
     )
+    hide_header_editor = get_config_val(
+        config,
+        curr_app_settings,
+        "hide_header_editor",
+        section="app",
+        getter="getboolean",
+    )
     open_custom_filter_on_startup = get_config_val(
         config,
         curr_app_settings,
@@ -116,6 +123,7 @@ def load_app_settings(config):
             open_custom_filter_on_startup=open_custom_filter_on_startup,
             open_predefined_filters_on_startup=open_predefined_filters_on_startup,
             hide_drop_rows=hide_drop_rows,
+            hide_header_editor=hide_header_editor,
         )
     )
 
@@ -156,7 +164,6 @@ def load_auth_settings(config):
 
 
 def build_show_options(options=None):
-
     defaults = dict(
         host=None,
         port=None,
@@ -181,6 +188,11 @@ def build_show_options(options=None):
         background_mode=None,
         range_highlights=None,
         vertical_headers=False,
+        hide_shutdown=False,
+        column_edit_options=None,
+        auto_hide_empty_columns=False,
+        highlight_filter=False,
+        hide_header_editor=False,
     )
     config_options = {}
     config = get_config()
@@ -259,6 +271,19 @@ def build_show_options(options=None):
             )
         config_options["vertical_headers"] = get_config_val(
             config, defaults, "vertical_headers", "getboolean"
+        )
+        config_options["column_edit_options"] = get_config_val(
+            config, defaults, "column_edit_options"
+        )
+        if config_options["column_edit_options"]:
+            config_options["column_edit_options"] = json.loads(
+                config_options["column_edit_options"]
+            )
+        config_options["auto_hide_empty_columns"] = get_config_val(
+            config, defaults, "auto_hide_empty_columns", "getboolean"
+        )
+        config_options["highlight_filter"] = get_config_val(
+            config, defaults, "highlight_filter", "getboolean"
         )
 
     return dict_merge(defaults, config_options, options)

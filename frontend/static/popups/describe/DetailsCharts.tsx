@@ -76,11 +76,15 @@ export const DetailsCharts: React.FC<DetailsChartsProps> = ({ details, detailCod
     buildChart({ type });
   }, []);
 
+  React.useEffect(() => {
+    setDtype(props.dtype);
+  }, [col]);
+
   return (
-    <React.Fragment>
+    <div data-testid="details-charts">
       {error}
       <div className="row">
-        <div className="col-md-12">
+        <div data-testid="describe-filters" className="col-md-12">
           <DescribeFilters
             {...{ type, cols, dtype, code, top }}
             selectedCol={col}
@@ -90,6 +94,6 @@ export const DetailsCharts: React.FC<DetailsChartsProps> = ({ details, detailCod
         </div>
       </div>
       {chart}
-    </React.Fragment>
+    </div>
   );
 };

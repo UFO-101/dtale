@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 import dtale.global_state as global_state
+import dtale.pandas_util as pandas_util
 from dtale.column_analysis import handle_cleaners
 from dtale.query import build_col_key, run_query
 from dtale.utils import (
@@ -23,7 +24,7 @@ YAXIS_CHARTS = ["line", "bar", "scatter"]
 ZAXIS_CHARTS = ["heatmap", "3d_scatter", "surface"]
 NON_EXT_AGGREGATION = ZAXIS_CHARTS + ["treemap", "maps"]
 ANIMATION_CHARTS = ["line"]
-ANIMATE_BY_CHARTS = ["bar", "3d_scatter", "heatmap", "maps"]
+ANIMATE_BY_CHARTS = ["bar", "3d_scatter", "heatmap", "maps", "histogram"]
 MAX_GROUPS = 30
 MAPBOX_TOKEN = None
 AGGS = dict(
@@ -129,6 +130,9 @@ def valid_chart(chart_type=None, x=None, y=None, z=None, **inputs):
         pareto_props = ["pareto_x", "pareto_bars", "pareto_line"]
         return all(inputs.get(p) is not None for p in pareto_props)
 
+    if chart_type == "histogram":
+        return inputs.get("histogram_col") is not None
+
     if not x:
         return False
 
@@ -202,7 +206,7 @@ def group_filter_handler(col_def, group_val, group_classifier):
     col_def_segs = col_def.split("|")
     if len(col_def_segs) > 1:
         col, freq = col_def_segs
-        if group_val == "nan":
+        if group_val == "NaN":
             return "{col} != {col}".format(col=build_col_key(col)), "{}: NaN".format(
                 col
             )
@@ -273,7 +277,7 @@ def group_filter_handler(col_def, group_val, group_classifier):
                 ),
                 "{}.dt.year: {}".format(col, ts_val.year),
             )
-    if group_val == "nan":
+    if group_val == "NaN":
         return "{col} != {col}".format(col=build_col_key(col_def)), "{}: NaN".format(
             col_def
         )
@@ -431,6 +435,7 @@ def build_agg_data(
     group_col=None,
     animate_by=None,
     extended_aggregation=[],
+    dropna=True,
 ):
     """
     Builds aggregated data when an aggregation (sum, mean, max, min...) is selected from the front-end.
@@ -525,8 +530,10 @@ def build_agg_data(
         ]
         groups.columns = idx_cols + group_cols
     else:
-        groups = df.groupby(idx_cols)
-        groups, code, group_cols = compute_aggs(df, groups, aggs, idx_cols, group_col)
+        groups = pandas_util.groupby(df, idx_cols, dropna=dropna)
+        groups, code, group_cols = compute_aggs(
+            df, groups, aggs, idx_cols, group_col, dropna=dropna
+        )
 
     if animate_by is not None:
         full_idx = pd.MultiIndex.from_product(
@@ -563,7 +570,7 @@ def parse_final_col(final_col):
     return final_col, None
 
 
-def compute_aggs(df, groups, aggs, idx_cols, group_col):
+def compute_aggs(df, groups, aggs, idx_cols, group_col, dropna=True):
     all_code = []
     all_calculated_aggs = []
     all_calculated_cols = []
@@ -575,7 +582,10 @@ def compute_aggs(df, groups, aggs, idx_cols, group_col):
             calc_group = getattr(groups[curr_agg_cols], func)()
             calc_group = (
                 calc_group
-                / getattr(df.groupby(subidx_cols)[curr_agg_cols], func)()
+                / getattr(
+                    pandas_util.groupby(df, subidx_cols, dropna=dropna)[curr_agg_cols],
+                    func,
+                )()
                 * 100
             )
             if isinstance(calc_group, pd.Series):
@@ -587,12 +597,12 @@ def compute_aggs(df, groups, aggs, idx_cols, group_col):
             elif len(curr_agg_cols) == 1:
                 groups.name = curr_agg_cols[0]
             code = (
-                "{chart_data} = chart_data.groupby(['{cols}'])[['{agg_cols}']].{agg}()\n"
-                "{chart_data} = {chart_data} / {chart_data}.groupby(['{subidx_cols}']).{agg}()"
+                "{chart_data} = chart_data{groupby}[['{agg_cols}']].{agg}()\n"
+                "{chart_data} = {chart_data} / {chart_data}{subgroupby}.{agg}()"
             )
             code = code.format(
-                cols="', '".join(idx_cols),
-                subidx_cols="', '".join(subidx_cols),
+                groupby=pandas_util.groupby_code(idx_cols, dropna=dropna),
+                subgroupby=pandas_util.groupby_code(subidx_cols, dropna=dropna),
                 agg_cols="', '".join(make_list(curr_agg_cols)),
                 agg=func,
                 chart_data=chart_data_key,
@@ -612,7 +622,7 @@ def compute_aggs(df, groups, aggs, idx_cols, group_col):
             calc_group = pd.concat(list(_build_first_last()), axis=1)
             all_code += [
                 (
-                    "groups = chart_data.groupby(['{cols}'])\n"
+                    "groups = chart_data{groupby}\n"
                     "\ndef _build_first_last():\n"
                     "\tfor col in ['{agg_cols}']:\n"
                     "\t\tyield groups[[col]].apply(\n"
@@ -620,7 +630,7 @@ def compute_aggs(df, groups, aggs, idx_cols, group_col):
                     "\t\t)\n\n"
                     "{chart_data} = pd.DataFrame(list(_build_first_last()), columns=['{agg_cols}'])"
                 ).format(
-                    cols="', '".join(idx_cols),
+                    groupby=pandas_util.groupby_code(idx_cols, dropna=dropna),
                     agg_cols="', '".join(curr_agg_cols),
                     agg_func=agg_func,
                     chart_data=chart_data_key,
@@ -629,8 +639,8 @@ def compute_aggs(df, groups, aggs, idx_cols, group_col):
         else:
             calc_group = getattr(groups[curr_agg_cols], curr_agg)()
             all_code += [
-                "{chart_data} = chart_data.groupby(['{cols}'])[['{agg_cols}']].{agg}()".format(
-                    cols="', '".join(idx_cols),
+                "{chart_data} = chart_data{groupby}[['{agg_cols}']].{agg}()".format(
+                    groupby=pandas_util.groupby_code(idx_cols, dropna=dropna),
                     agg_cols="', '".join(curr_agg_cols),
                     agg=curr_agg,
                     chart_data=chart_data_key,
@@ -677,6 +687,7 @@ def build_base_chart(
     unlimited_data=False,
     animate_by=None,
     cleaners=[],
+    dropna=True,
     **kwargs
 ):
     """
@@ -706,7 +717,9 @@ def build_base_chart(
     :return: dict
     """
     group_fmt_overrides = {
-        "I": lambda v, as_string: json_int(v, as_string=as_string, fmt="{}")
+        "I": lambda v, nan_display, as_string: json_int(
+            v, nan_display=nan_display, as_string=as_string, fmt="{}"
+        )
     }
     data, code = retrieve_chart_data(
         raw_data, x, y, kwargs.get("z"), group_col, animate_by, group_val=group_val
@@ -783,7 +796,10 @@ def build_base_chart(
                 cols="', '".join(sort_cols)
             )
         )
-        check_all_nan(data)
+        nan_cols = list(data.columns)
+        if not dropna:
+            nan_cols = [col for col in data.columns if col not in group_col]
+        check_all_nan(data, cols=nan_cols)
         data = data.rename(columns={x: x_col})
         code.append(
             "chart_data = chart_data.rename(columns={'" + x + "': '" + x_col + "'})"
@@ -800,6 +816,7 @@ def build_base_chart(
                 group_col=group_col,
                 animate_by=animate_by,
                 extended_aggregation=extended_aggregation,
+                dropna=dropna,
             )
             code += agg_code
 
@@ -823,10 +840,11 @@ def build_base_chart(
             )
             raise ChartBuildingError(msg, group_vals.to_string(index=False))
 
-        data = data.dropna()
+        if dropna:
+            data = data.dropna()
+            code.append("chart_data = chart_data.dropna()")
         if return_raw:
             return data.rename(columns={x_col: x})
-        code.append("chart_data = chart_data.dropna()")
         data_f, range_f = build_formatters(data)
         ret_data = dict(
             data={},
@@ -849,13 +867,15 @@ def build_base_chart(
         }
 
         def _load_groups(df):
-            for group_val, grp in df.groupby(group_col):
+            for group_val, grp in pandas_util.groupby(df, group_col, dropna=dropna):
 
                 def _group_filter():
                     for gv, gc in zip(make_list(group_val), group_col):
                         classifier = classify_type(dtypes[gc])
                         yield group_filter_handler(
-                            gc, group_fmts[gc](gv, as_string=True), classifier
+                            gc,
+                            group_fmts[gc](gv, nan_display="NaN", as_string=True),
+                            classifier,
                         )
 
                 final_group_filter, final_group_label = [], []
@@ -877,7 +897,7 @@ def build_base_chart(
                 ret_data["frames"].append(
                     dict(
                         data=dict(_load_groups(frame)),
-                        name=frame_fmt(frame_key, as_string=True),
+                        name=frame_fmt(frame_key, nan_display="NaN", as_string=True),
                     )
                 )
             ret_data["data"] = copy.deepcopy(ret_data["frames"][-1]["data"])
@@ -961,7 +981,7 @@ def build_base_chart(
             ret_data["frames"].append(
                 dict(
                     data={str("all"): data_f.format_lists(frame)},
-                    name=frame_fmt(frame_key, as_string=True),
+                    name=frame_fmt(frame_key, nan_display="NaN", as_string=True),
                 )
             )
         ret_data["data"] = copy.deepcopy(ret_data["frames"][-1]["data"])

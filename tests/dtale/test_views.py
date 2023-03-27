@@ -60,7 +60,11 @@ def test_startup(unittest):
     test_data = pd.DataFrame([dict(date=pd.Timestamp("now"), security_id=1, foo=1.5)])
     test_data = test_data.set_index(["date", "security_id"])
     instance = views.startup(
-        URL, data_loader=lambda: test_data, sort=[("security_id", "ASC")]
+        URL,
+        data_loader=lambda: test_data,
+        sort=[("security_id", "ASC")],
+        hide_header_editor=True,
+        hide_shutdown=True,
     )
 
     pdt.assert_frame_equal(instance.data, test_data.reset_index())
@@ -69,13 +73,34 @@ def test_startup(unittest):
         dict(
             allow_cell_edits=True,
             columnFormats={},
-            hide_shutdown=False,
+            hide_shutdown=True,
+            hide_header_editor=True,
             locked=["date", "security_id"],
             precision=2,
             sortInfo=[("security_id", "ASC")],
             rangeHighlight=None,
             backgroundMode=None,
             verticalHeaders=False,
+            highlightFilter=False,
+        ),
+        "should lock index columns",
+    )
+
+    global_state.set_app_settings(dict(hide_header_editor=False))
+    unittest.assertEqual(
+        global_state.get_settings(instance._data_id),
+        dict(
+            allow_cell_edits=True,
+            columnFormats={},
+            hide_shutdown=True,
+            hide_header_editor=False,
+            locked=["date", "security_id"],
+            precision=2,
+            sortInfo=[("security_id", "ASC")],
+            rangeHighlight=None,
+            backgroundMode=None,
+            verticalHeaders=False,
+            highlightFilter=False,
         ),
         "should lock index columns",
     )
@@ -119,11 +144,13 @@ def test_startup(unittest):
             allow_cell_edits=False,
             columnFormats={},
             hide_shutdown=False,
+            hide_header_editor=False,
             locked=[],
             precision=6,
             rangeHighlight=range_highlights,
             backgroundMode=None,
             verticalHeaders=False,
+            highlightFilter=False,
         ),
         "no index = nothing locked",
     )
@@ -138,11 +165,13 @@ def test_startup(unittest):
             allow_cell_edits=True,
             columnFormats={},
             hide_shutdown=False,
+            hide_header_editor=False,
             locked=["security_id"],
             precision=2,
             rangeHighlight=None,
             backgroundMode=None,
             verticalHeaders=False,
+            highlightFilter=False,
         ),
         "should lock index columns",
     )
@@ -158,9 +187,11 @@ def test_startup(unittest):
             precision=2,
             columnFormats={},
             hide_shutdown=False,
+            hide_header_editor=False,
             rangeHighlight=None,
             backgroundMode=None,
             verticalHeaders=False,
+            highlightFilter=False,
         ),
         "should lock index columns",
     )
@@ -176,21 +207,27 @@ def test_startup(unittest):
             precision=2,
             columnFormats={},
             hide_shutdown=False,
+            hide_header_editor=False,
             rangeHighlight=None,
             backgroundMode=None,
             verticalHeaders=False,
+            highlightFilter=False,
         ),
         "should lock index columns",
     )
 
     test_data = pd.DataFrame(
         [
-            dict(date=pd.Timestamp("now"), security_id=1, foo=1.0, bar=2.0),
-            dict(date=pd.Timestamp("now"), security_id=1, foo=2.0, bar=np.inf),
+            dict(date=pd.Timestamp("now"), security_id=1, foo=1.0, bar=2.0, baz=np.nan),
+            dict(
+                date=pd.Timestamp("now"), security_id=1, foo=2.0, bar=np.inf, baz=np.nan
+            ),
         ],
-        columns=["date", "security_id", "foo", "bar"],
+        columns=["date", "security_id", "foo", "bar", "baz"],
     )
-    instance = views.startup(URL, data_loader=lambda: test_data)
+    instance = views.startup(
+        URL, data_loader=lambda: test_data, auto_hide_empty_columns=True
+    )
     unittest.assertEqual(
         {
             "name": "bar",
@@ -214,6 +251,13 @@ def test_startup(unittest):
             None,
         ),
     )
+
+    non_visible = [
+        dt["name"]
+        for dt in global_state.get_dtypes(instance._data_id)
+        if not dt["visible"]
+    ]
+    unittest.assertEqual(non_visible, ["baz"])
 
     test_data = pd.DataFrame([dict(a=1, b=2)])
     test_data = test_data.rename(columns={"b": "a"})
@@ -1493,11 +1537,61 @@ def test_get_data(unittest, test_data):
             "should return data at index 1 w/ sort",
         )
 
+        global_state.get_settings(c.port)["highlightFilter"] = True
+        params = dict(ids=json.dumps(["1"]))
+        response = c.get("/dtale/data/{}".format(c.port), query_string=params)
+        response_data = json.loads(response.data)
+        expected = {
+            "1": dict(
+                date="2000-01-01",
+                security_id=1,
+                dtale_index=1,
+                foo=1,
+                bar=1.5,
+                baz="baz",
+                __filtered=True,
+            )
+        }
+        unittest.assertEqual(
+            response_data["results"],
+            expected,
+            "should return data at index 1 w/ filtered flag for highlighting",
+        )
+
+        params = dict(ids=json.dumps(["1-2"]))
+        response = c.get("/dtale/data/{}".format(c.port), query_string=params)
+        response_data = json.loads(response.data)
+        expected = {
+            "1": dict(
+                date="2000-01-01",
+                security_id=1,
+                dtale_index=1,
+                foo=1,
+                bar=1.5,
+                baz="baz",
+                __filtered=True,
+            ),
+            "2": dict(
+                date="2000-01-01",
+                security_id=2,
+                dtale_index=2,
+                foo=1,
+                bar=1.5,
+                baz="baz",
+            ),
+        }
+        unittest.assertEqual(
+            response_data["results"],
+            expected,
+            "should return data at indexes 1-2 w/ filtered flag for highlighting",
+        )
+
         response = c.get("/dtale/code-export/{}".format(c.port))
         response_data = json.loads(response.data)
         assert response_data["success"]
 
         global_state.get_settings(c.port)["query"] = "security_id == 50"
+        global_state.get_settings(c.port)["highlightFilter"] = False
         params = dict(ids=json.dumps(["0"]))
         response = c.get("/dtale/data/{}".format(c.port), query_string=params)
         response_data = json.loads(response.data)
@@ -2036,6 +2130,7 @@ def test_chart_exports_funnel(treemap_data):
 
 @pytest.mark.skipif(not PY3, reason="requires python 3 or higher")
 def test_chart_exports_clustergram(clustergram_data):
+    pytest.importorskip("dash_bio")
     import dtale.views as views
 
     global_state.clear_store()
@@ -2071,6 +2166,163 @@ def test_chart_exports_pareto(pareto_data):
             pareto_dir="DESC",
         )
         response = c.get("/dtale/chart-export/{}".format(c.port), query_string=params)
+        assert response.content_type == "text/html"
+
+
+@pytest.mark.unit
+def test_chart_exports_histogram(test_data):
+    import dtale.views as views
+
+    global_state.clear_store()
+    with app.test_client() as c:
+        df, _ = views.format_data(test_data)
+        build_data_inst({c.port: df})
+        global_state.set_dtypes(c.port, views.build_dtypes_state(df))
+
+        params = dict(
+            chart_type="histogram",
+            histogram_col="foo",
+            histogram_type="bins",
+            histogram_bins="5",
+        )
+        response = c.get("/dtale/chart-export/{}".format(c.port), query_string=params)
+        assert response.content_type == "text/html"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("custom_data", [dict(rows=1000, cols=3)], indirect=True)
+def test_export_all_charts(custom_data, state_data):
+    import dtale.views as views
+
+    global_state.clear_store()
+    with app.test_client() as c:
+        build_data_inst({c.port: custom_data})
+        build_dtypes({c.port: views.build_dtypes_state(custom_data)})
+        params = dict(chart_type="invalid")
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "application/json"
+
+        params = dict(
+            chart_type="line",
+            x="date",
+            y=json.dumps(["Col0"]),
+            agg="sum",
+            query="Col5 == 50",
+        )
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "application/json"
+
+        params = dict(chart_type="bar", x="date", y=json.dumps(["Col0"]), agg="sum")
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+        params["group"] = json.dumps(["bool_val"])
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+        params = dict(chart_type="line", x="date", y=json.dumps(["Col0"]), agg="sum")
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+        params = dict(chart_type="scatter", x="Col0", y=json.dumps(["Col1"]))
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+        params["trendline"] = "ols"
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+        params = dict(
+            chart_type="3d_scatter",
+            x="date",
+            y=json.dumps(["security_id"]),
+            z="Col0",
+        )
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+        params = dict(
+            chart_type="surface", x="date", y=json.dumps(["security_id"]), z="Col0"
+        )
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+        params = dict(
+            chart_type="pie",
+            x="security_id",
+            y=json.dumps(["Col0"]),
+            agg="sum",
+            query="security_id >= 100000 and security_id <= 100010",
+        )
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+        params = dict(
+            chart_type="heatmap", x="date", y=json.dumps(["security_id"]), z="Col0"
+        )
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+    with app.test_client() as c:
+        build_data_inst({c.port: state_data})
+        build_dtypes({c.port: views.build_dtypes_state(state_data)})
+        params = dict(
+            chart_type="maps",
+            map_type="choropleth",
+            loc_mode="USA-states",
+            loc="Code",
+            map_val="val",
+            agg="raw",
+        )
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
+        assert response.content_type == "text/html"
+
+    df = pd.DataFrame(
+        {
+            "lat": np.random.uniform(-40, 40, 50),
+            "lon": np.random.uniform(-40, 40, 50),
+            "val": np.random.randint(0, high=100, size=50),
+        }
+    )
+    with app.test_client() as c:
+        build_data_inst({c.port: df})
+        build_dtypes({c.port: views.build_dtypes_state(df)})
+        params = dict(
+            chart_type="maps",
+            map_type="scattergeo",
+            lat="lat",
+            lon="lon",
+            map_val="val",
+            scope="world",
+            agg="raw",
+        )
+        response = c.get(
+            "/dtale/chart-export-all/{}".format(c.port), query_string=params
+        )
         assert response.content_type == "text/html"
 
 

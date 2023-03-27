@@ -103,12 +103,13 @@ def test_bar_and_popup(unittest):
                 "cpg": "false",
                 "cpy": "false",
                 "y": '["b", "c"]',
+                "yaxis": '{"type": "multi"}',
                 "extended_aggregation": '[{"agg": "sum", "col": "b"}, {"agg": "mean", "col": "c"}]',
             },
         )
         expected = {
             "barmode": "group",
-            "legend": {"orientation": "h"},
+            "legend": {"orientation": "h", "y": -0.3},
             "title": {"text": "Sum of b, Mean of c by a"},
             "xaxis": {"tickformat": "0:g", "title": {"text": "a"}},
             "yaxis": {"tickformat": "0:g", "title": {"text": "Sum of b"}},
@@ -198,7 +199,7 @@ def test_bar_and_popup(unittest):
             ]["layout"],
             {
                 "barmode": "group",
-                "legend": {"orientation": "h"},
+                "legend": {"orientation": "h", "y": -0.3},
                 "title": {"text": "Sum of b, Mean of c by a"},
                 "xaxis": {
                     "tickmode": "array",
@@ -274,7 +275,7 @@ def test_line(unittest):
         unittest.assertEqual(
             chart["props"]["figure"]["layout"],
             {
-                "legend": {"orientation": "h"},
+                "legend": {"orientation": "h", "y": -0.3},
                 "title": {"text": "(c: 7) - Sum of b, Mean of c by a"},
                 "xaxis": {"tickformat": "0:g", "title": {"text": "a"}},
                 "yaxis": {
@@ -366,7 +367,7 @@ def test_pie(unittest):
         unittest.assertEqual(
             chart["props"]["figure"]["layout"],
             {
-                "legend": {"orientation": "h"},
+                "legend": {"orientation": "h", "y": -0.3},
                 "title": {"text": "(c: 13) - Sum of b by a"},
             },
         )
@@ -381,7 +382,7 @@ def test_pie(unittest):
         unittest.assertEqual(
             chart["props"]["figure"]["layout"],
             {
-                "legend": {"orientation": "h"},
+                "legend": {"orientation": "h", "y": -0.3},
                 "title": {"text": "(c: 13) - Mean of b by a"},
             },
         )
@@ -431,7 +432,10 @@ def test_pie(unittest):
         chart = chart["props"]["children"]["props"]["children"][1]["props"]["figure"]
         unittest.assertEqual(
             chart["layout"],
-            {"legend": {"orientation": "h"}, "title": {"text": "Sum of b by a"}},
+            {
+                "legend": {"orientation": "h", "y": -0.3},
+                "title": {"text": "Sum of b by a"},
+            },
         )
 
 

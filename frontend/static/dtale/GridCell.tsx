@@ -2,6 +2,7 @@ import * as React from 'react';
 import { withTranslation, WithTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 
+import { Checkbox } from '../popups/create/LabeledCheckbox';
 import { ActionType, HideMenuTooltipAction, ShowMenuTooltipAction } from '../redux/actions/AppActions';
 import { AppState } from '../redux/state/AppState';
 
@@ -75,22 +76,25 @@ const GridCell: React.FC<GridCellProps & WithTranslation> = ({
   const buildStyle = (
     rec: DataRecord,
     valueStyle: React.CSSProperties,
+    row: Record<string, DataRecord>,
   ): { style: React.CSSProperties; backgroundClass: string } => {
-    const backgroundStyle = bu.updateBackgroundStyles(colCfg!, rec, settings, min, max);
+    const backgroundStyle = bu.updateBackgroundStyles(colCfg!, rec, row, settings, min, max);
     const backgroundClass = Object.keys(backgroundStyle).length ? ' background' : '';
     return { style: { ...valueStyle, ...rec.style, ...backgroundStyle }, backgroundClass };
   };
 
   const cellIdx = `${columnIndex}|${rowIndex}`;
-  const rec = data[rowIndex - 1]?.[colCfg?.name ?? ''] ?? {};
+  const row = data[rowIndex - 1] ?? {};
+  const rec = row[colCfg?.name ?? ''] ?? {};
+  const isBool = gu.ColumnType.BOOL === gu.findColType(colCfg?.dtype);
   if (columnIndex > 0 && cellIdx === editedCell) {
     return (
       <div
         ref={ref}
         className="cell"
         style={{ ...style, padding: 0 }}
-        onMouseOver={() => showTooltip(ref.current!, t('editing'))}
-        onMouseLeave={hideTooltip}
+        onMouseOver={() => showTooltip(ref.current!, t(isBool ? 'bool_editing' : 'editing'))}
+        onMouseOut={hideTooltip}
       >
         <GridCellEditor
           {...{ value: `${rec.raw ?? ''}`, data, columns, rowCount, colCfg: colCfg!, propagateState, rowIndex }}
@@ -106,14 +110,16 @@ const GridCell: React.FC<GridCellProps & WithTranslation> = ({
   let className = buildCellClassName();
   if (colCfg?.name) {
     value = rec.view;
-    const styleProps = buildStyle(rec, valueStyle);
+    const styleProps = buildStyle(rec, valueStyle, row);
     className = `${className}${styleProps.backgroundClass}`;
     valueStyle = styleProps.style;
     if ([gu.ColumnType.STRING, gu.ColumnType.DATE].includes(gu.findColType(colCfg.dtype)) && rec.raw !== rec.view) {
       divProps.title = `${rec.raw ?? ''}`;
     }
     (divProps as any).cell_idx = cellIdx;
-    if (settings.columnFormats?.[colCfg.name]?.fmt?.link === true) {
+    if (isBool && ['true', 'false'].includes(`${rec.raw ?? ''}`.toLowerCase())) {
+      value = <Checkbox value={'true' === `${rec.raw ?? ''}`.toLowerCase()} {...divProps} />;
+    } else if (settings.columnFormats?.[colCfg.name]?.fmt?.link === true) {
       value = (
         <a href={`${rec.raw ?? ''}`} target="_blank" rel="noopener noreferrer">
           {value}
@@ -125,7 +131,13 @@ const GridCell: React.FC<GridCellProps & WithTranslation> = ({
   }
   return (
     <div className={className} style={{ ...style, ...valueStyle }} {...divProps}>
-      {colCfg?.resized ? <div className="resized">{value}</div> : value}
+      {colCfg?.resized ? (
+        <div className="resized" {...{ cell_idx: cellIdx }}>
+          {value}
+        </div>
+      ) : (
+        value
+      )}
     </div>
   );
 };

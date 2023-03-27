@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { withTranslation, WithTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
+import { AnyAction } from 'redux';
 
-import { AppActions } from '../../redux/actions/AppActions';
 import * as actions from '../../redux/actions/dtale';
 import { AppState } from '../../redux/state/AppState';
 import { SingleTrack, StyledSlider, Thumb } from '../../sliderUtils';
@@ -42,7 +42,6 @@ export const MaxDimensionOption: React.FC<MaxDimensionOptionProps & WithTranslat
     if (props.maxDimension === null) {
       updateMax(maxDimension);
     } else {
-      await serverState.updateMaxColumnWidth();
       clearMaxDimension();
     }
   };
@@ -83,7 +82,7 @@ export const MaxDimensionOption: React.FC<MaxDimensionOptionProps & WithTranslat
               }
             }}
           />
-          <div className="col pl-3 pr-2">
+          <div className="col pl-3 pr-2" data-testid={`${description}-slider`}>
             <StyledSlider
               defaultValue={maxDimension}
               renderTrack={SingleTrack as any}
@@ -105,10 +104,13 @@ export const MaxWidthOption: React.FC = () => {
   const maxColumnWidth = useSelector((state: AppState) => state.maxColumnWidth);
   const dispatch = useDispatch();
   const updateMaxDimension = async (width: number): Promise<void> => {
-    dispatch(actions.updateMaxWidth(width));
+    dispatch(actions.updateMaxWidth(width) as any as AnyAction);
     await serverState.updateMaxColumnWidth(width);
   };
-  const clearMaxDimension = (): AppActions<void> => dispatch(actions.clearMaxWidth());
+  const clearMaxDimension = async (): Promise<void> => {
+    dispatch(actions.clearMaxWidth() as any as AnyAction);
+    await serverState.updateMaxColumnWidth();
+  };
   return (
     <TranslatedMaxDimensionOption
       label="Width"
@@ -125,10 +127,13 @@ export const MaxHeightOption: React.FC = () => {
   const maxRowHeight = useSelector((state: AppState) => state.maxRowHeight);
   const dispatch = useDispatch();
   const updateMaxDimension = async (height: number): Promise<void> => {
-    dispatch(actions.updateMaxHeight(height));
+    dispatch(actions.updateMaxHeight(height) as any as AnyAction);
     await serverState.updateMaxRowHeight(height);
   };
-  const clearMaxDimension = (): AppActions<void> => dispatch(actions.clearMaxHeight());
+  const clearMaxDimension = async (): Promise<void> => {
+    dispatch(actions.clearMaxHeight() as any as AnyAction);
+    await serverState.updateMaxRowHeight();
+  };
   return (
     <TranslatedMaxDimensionOption
       label="Height"

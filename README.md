@@ -87,7 +87,7 @@ D-Tale was the product of a SAS to Python conversion.  What was originally a per
   - [Editing Cells](#editing-cells)
   - [Copy Cells Into Clipboard](#copy-cells-into-clipboard)
   - [Main Menu Functions](#main-menu-functions)
-    - [XArray Operations](#xarray-operations), [Describe](#describe), [Outlier Detection](#outlier-detection), [Custom Filter](#custom-filter), [Dataframe Functions](#dataframe-functions), [Merge & Stack](#merge-&-stack), [Summarize Data](#summarize-data), [Duplicates](#duplicates), [Missing Analysis](#missing-analysis), [Correlations](#correlations), [Predictive Power Score](#predictive-power-score), [Heat Map](#heat-map), [Highlight Dtypes](#highlight-dtypes), [Highlight Missing](#highlight-missing), [Highlight Outliers](#highlight-outliers), [Highlight Range](#highlight-range), [Low Variance Flag](#low-variance-flag), [Instances](#instances), [Code Exports](#code-exports), [Export CSV](#export-csv), [Load Data & Sample Datasets](#load-data-&-sample-datasets), [Refresh Widths](#refresh-widths), [About](#about), [Theme](#theme), [Reload Data](#reload-data), [Unpin/Pin Menu](#unpinpin-menu), [Language](#language), [Shutdown](#shutdown)
+    - [XArray Operations](#xarray-operations), [Describe](#describe), [Outlier Detection](#outlier-detection), [Custom Filter](#custom-filter), [Dataframe Functions](#dataframe-functions), [Merge & Stack](#merge--stack), [Summarize Data](#summarize-data), [Duplicates](#duplicates), [Missing Analysis](#missing-analysis), [Correlations](#correlations), [Predictive Power Score](#predictive-power-score), [Heat Map](#heat-map), [Highlight Dtypes](#highlight-dtypes), [Highlight Missing](#highlight-missing), [Highlight Outliers](#highlight-outliers), [Highlight Range](#highlight-range), [Low Variance Flag](#low-variance-flag), [Instances](#instances), [Code Exports](#code-exports), [Export CSV](#export-csv), [Load Data & Sample Datasets](#load-data--sample-datasets), [Refresh Widths](#refresh-widths), [About](#about), [Theme](#theme), [Reload Data](#reload-data), [Unpin/Pin Menu](#unpinpin-menu), [Language](#language), [Shutdown](#shutdown)
   - [Column Menu Functions](#column-menu-functions)
     - [Filtering](#filtering), [Moving Columns](#moving-columns), [Hiding Columns](#hiding-columns), [Delete](#delete), [Rename](#rename), [Replacements](#replacements), [Lock](#lock), [Unlock](#unlock), [Sorting](#sorting), [Formats](#formats), [Describe (Column Analysis)](#describe-column-analysis)
   - [Charts](#charts)
@@ -150,10 +150,10 @@ import pandas as pd
 
 df = pd.DataFrame([dict(a=1,b=2,c=3)])
 
-# Assigning a reference to a running D-Tale process
+# Assigning a reference to a running D-Tale process.
 d = dtale.show(df)
 
-# Accessing data associated with D-Tale process
+# Accessing data associated with D-Tale process.
 tmp = d.data.copy()
 tmp['d'] = 4
 
@@ -164,16 +164,16 @@ d.data = tmp
 # Shutting down D-Tale process
 d.kill()
 
-# using Python's `webbrowser` package it will try and open your server's default browser to this process
+# Using Python's `webbrowser` package it will try and open your server's default browser to this process.
 d.open_browser()
 
-# There is also some helpful metadata about the process
-d._data_id  # the process's data identifier
-d._url  # the url to access the process
+# There is also some helpful metadata about the process.
+d._data_id  # The process's data identifier.
+d._url  # The url to access the process.
 
-d2 = dtale.get_instance(d._data_id)  # returns a new reference to the instance running at that data_id
+d2 = dtale.get_instance(d._data_id)  # Returns a new reference to the instance running at that data_id.
 
-dtale.instances()  # prints a list of all ids & urls of running D-Tale sessions
+dtale.instances()  # Prints a list of all ids & urls of running D-Tale sessions.
 
 ```
 

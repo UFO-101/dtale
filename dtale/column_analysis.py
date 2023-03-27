@@ -7,6 +7,7 @@ import scipy.stats as sts
 import time
 
 import dtale.global_state as global_state
+import dtale.pandas_util as pandas_util
 
 from dtale.code_export import build_code_export, build_final_chart_code
 from dtale.column_builders import clean, clean_code
@@ -25,6 +26,7 @@ from dtale.utils import (
     grid_formatter,
     json_float,
     json_timestamp,
+    make_list,
 )
 
 
@@ -318,9 +320,9 @@ class CategoryAnalysis(object):
         self.top = get_int_arg(req, "top")
 
     def build(self, parent):
-        hist = parent.data.groupby(self.category_col)[[parent.selected_col]].agg(
-            self.aggs
-        )
+        hist = pandas_util.groupby(parent.data, self.category_col, dropna=False)[
+            [parent.selected_col]
+        ].agg(self.aggs)
         hist.columns = hist.columns.droplevel(0)
         hist.columns = ["count", "data"]
         if self.category_agg == "pctsum":
@@ -328,7 +330,7 @@ class CategoryAnalysis(object):
         hist.index.name = "labels"
         hist = hist.reset_index()
         hist, top, top_code = handle_top(hist, self.top)
-        f = grid_formatter(grid_columns(hist), nan_display=None)
+        f = grid_formatter(grid_columns(hist), nan_display="NaN")
         return_data = f.format_lists(hist)
         return_data["top"] = top
         return return_data, self._build_code(parent, top_code)
@@ -364,8 +366,8 @@ class CategoryAnalysis(object):
         )
 
         code = [
-            "chart = df.groupby('{cat}')[['{col}']].agg(['{aggs}'])".format(
-                cat=self.category_col,
+            "chart = df{groupby}[['{col}']].agg(['{aggs}'])".format(
+                groupby=pandas_util.groupby_code(make_list(self.category_col), False),
                 col=parent.selected_col,
                 aggs="', '".join(self.aggs),
             ),
@@ -444,6 +446,7 @@ class ValueCountAnalysis(object):
         )
         code += cleaner_code
         hist = self.build_hist(s, code)
+        print(hist)
 
         if self.ordinal_col is not None:
             ordinal_data, ordinal_code = self.setup_ordinal_data(parent)

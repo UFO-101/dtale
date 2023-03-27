@@ -16,14 +16,6 @@ from flask import (
     request,
     Response,
 )
-import matplotlib
-
-matplotlib.use("agg")  # noqa: E261
-
-import matplotlib.pyplot as plt
-
-plt.rcParams["font.sans-serif"] = ["SimHei"]  # Or any other Chinese characters
-matplotlib.rcParams["font.family"] = ["Heiti TC"]
 
 import missingno as msno
 import networkx as nx
@@ -34,7 +26,6 @@ import requests
 import scipy.stats as sts
 import seaborn as sns
 import xarray as xr
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from six import BytesIO, PY3, string_types, StringIO
 
 import dtale.correlations as correlations
@@ -122,6 +113,35 @@ def exception_decorator(func):
             return jsonify_error(e)
 
     return _handle_exceptions
+
+
+def matplotlib_decorator(func):
+    @wraps(func)
+    def _handle_matplotlib(*args, **kwargs):
+        try:
+            import matplotlib
+
+            current_backend = matplotlib.get_backend()
+
+            matplotlib.use("agg")  # noqa: E261
+
+            import matplotlib.pyplot as plt
+
+            plt.rcParams["font.sans-serif"] = [
+                "SimHei"
+            ]  # Or any other Chinese characters
+            matplotlib.rcParams["font.family"] = ["Heiti TC"]
+
+            return func(*args, **kwargs)
+        except BaseException as e:
+            raise e
+        finally:
+            try:
+                matplotlib.pyplot.switch_backend(current_backend)
+            except BaseException:
+                pass
+
+    return _handle_matplotlib
 
 
 class NoDataLoadedException(Exception):
@@ -298,19 +318,29 @@ class DtaleData(object):
         Helper function for updating instance-specific settings. For example:
         * allow_cell_edits - whether cells can be edited
         * locked - which columns are locked to the left of the grid
+        * sort - The sort to apply to the data on startup (EX: [("col1", "ASC"), ("col2", "DESC"),...])
         * custom_formats - display formatting for specific columns
         * background_mode - different background displays in grid
         * range_highlights - specify background colors for ranges of values in the grid
         * vertical_headers - if True, then rotate column headers vertically
+        * column_edit_options - the options to allow on the front-end when editing a cell for the columns specified
+        * highlight_filter - if True, then highlight rows on the frontend which will be filtered when applying a filter
+                             rather than hiding them from the dataframe
+        * hide_shutdown - if true, this will hide the "Shutdown" button from users
+        * nan_display - if value in dataframe is :attr:`numpy:numpy.nan` then return this value on the frontend
+        * hide_header_editor - if true, this will hide header editor when editing cells on the frontend
+
+        After applying please refresh any open browsers!
         """
         name_updates = dict(
             range_highlights="rangeHighlight",
             column_formats="columnFormats",
             background_mode="backgroundMode",
             vertical_headers="verticalHeaders",
+            highlight_filter="highlightFilter",
         )
         settings = {name_updates.get(k, k): v for k, v in updates.items()}
-        _update_settings(self._data_id, settings)
+        global_state.update_settings(self._data_id, settings)
 
     def get_settings(self):
         """Helper function for retrieving any instance-specific settings."""
@@ -919,6 +949,10 @@ def startup(
     is_proxy=None,
     vertical_headers=False,
     hide_shutdown=False,
+    column_edit_options=None,
+    auto_hide_empty_columns=False,
+    highlight_filter=False,
+    hide_header_editor=False,
 ):
     """
     Loads and stores data globally
@@ -976,6 +1010,14 @@ def startup(
     :type range_highlights: dict, optional
     :param vertical_headers: if True, then rotate column headers vertically
     :type vertical_headers: boolean, optional
+    :param column_edit_options: The options to allow on the front-end when editing a cell for the columns specified
+    :type column_edit_options: dict, optional
+    :param auto_hide_empty_columns: if True, then auto-hide any columns on the front-end that are comprised entirely of
+                                    NaN values
+    :type auto_hide_empty_columns: boolean, optional
+    :param highlight_filter: if True, then highlight rows on the frontend which will be filtered when applying a filter
+                             rather than hiding them from the dataframe
+    :type highlight_filter: boolean, optional
     """
 
     if (
@@ -1029,6 +1071,10 @@ def startup(
                 is_proxy=is_proxy,
                 vertical_headers=vertical_headers,
                 hide_shutdown=hide_shutdown,
+                column_edit_options=column_edit_options,
+                auto_hide_empty_columns=auto_hide_empty_columns,
+                highlight_filter=highlight_filter,
+                hide_header_editor=hide_header_editor,
             )
 
             global_state.set_dataset(instance._data_id, data)
@@ -1073,6 +1119,7 @@ def startup(
             backgroundMode=background_mode,
             rangeHighlight=range_highlights,
             verticalHeaders=vertical_headers,
+            highlightFilter=highlight_filter,
         )
         base_predefined = predefined_filters.init_filters()
         if base_predefined:
@@ -1084,6 +1131,10 @@ def startup(
             base_settings["nanDisplay"] = nan_display
         if hide_shutdown is not None:
             base_settings["hide_shutdown"] = hide_shutdown
+        if hide_header_editor is not None:
+            base_settings["hide_header_editor"] = hide_header_editor
+        if column_edit_options is not None:
+            base_settings["column_edit_options"] = column_edit_options
         global_state.set_settings(data_id, base_settings)
         if optimize_dataframe:
             data = optimize_df(data)
@@ -1095,6 +1146,12 @@ def startup(
                     col["visible"] = False
                 if hide_columns and col["name"] in hide_columns:
                     col["visible"] = False
+        if auto_hide_empty_columns:
+            is_empty = data.isnull().all()
+            is_empty = list(is_empty[is_empty].index.values)
+            for col in dtypes_state:
+                if col["name"] in is_empty:
+                    col["visible"] = False
         global_state.set_dtypes(data_id, dtypes_state)
         global_state.set_context_variables(
             data_id, build_context_variables(data_id, context_vars)
@@ -1102,6 +1159,14 @@ def startup(
         return DtaleData(data_id, url, is_proxy=is_proxy, app_root=app_root)
     else:
         raise NoDataLoadedException("No data has been loaded into this D-Tale session!")
+
+
+def is_vscode():
+    if os.environ.get("VSCODE_PID") is not None:
+        return True
+    if "1" == os.environ.get("VSCODE_INJECTION"):
+        return True
+    return False
 
 
 def base_render_template(template, data_id, **kwargs):
@@ -1119,9 +1184,11 @@ def base_render_template(template, data_id, **kwargs):
     hide_shutdown = global_state.load_flag(data_id, "hide_shutdown", False)
     allow_cell_edits = global_state.load_flag(data_id, "allow_cell_edits", True)
     github_fork = global_state.load_flag(data_id, "github_fork", False)
+    hide_header_editor = global_state.load_flag(data_id, "hide_header_editor", False)
     app_overrides = dict(
         allow_cell_edits=allow_cell_edits,
         hide_shutdown=hide_shutdown,
+        hide_header_editor=hide_header_editor,
         github_fork=github_fork,
     )
     return render_template(
@@ -1136,7 +1203,7 @@ def base_render_template(template, data_id, **kwargs):
         predefined_filters=json.dumps(
             [f.asdict() for f in predefined_filters.get_filters()]
         ),
-        is_vscode=os.environ.get("VSCODE_PID") is not None,
+        is_vscode=is_vscode(),
         **dict_merge(kwargs, curr_app_settings, app_overrides)
     )
 
@@ -1368,12 +1435,6 @@ def process_keys():
     )
 
 
-def _update_settings(data_id, settings):
-    curr_settings = global_state.get_settings(data_id) or {}
-    updated_settings = dict_merge(curr_settings, settings)
-    global_state.set_settings(data_id, updated_settings)
-
-
 @dtale.route("/update-settings/<data_id>")
 @exception_decorator
 def update_settings(data_id):
@@ -1386,7 +1447,7 @@ def update_settings(data_id):
     :return: JSON
     """
 
-    _update_settings(data_id, get_json_arg(request, "settings", {}))
+    global_state.update_settings(data_id, get_json_arg(request, "settings", {}))
     return jsonify(dict(success=True))
 
 
@@ -2498,8 +2559,8 @@ def get_data(data_id):
     if not export and ids is None:
         return jsonify({})
 
-    col_types = global_state.get_dtypes(data_id)
     curr_settings = global_state.get_settings(data_id) or {}
+    col_types = global_state.get_dtypes(data_id)
     f = grid_formatter(col_types, nan_display=curr_settings.get("nanDisplay", "nan"))
     if curr_settings.get("sortInfo") != params.get("sort"):
         data = sort_df_for_grid(data, params)
@@ -2509,12 +2570,17 @@ def get_data(data_id):
     else:
         curr_settings = {k: v for k, v in curr_settings.items() if k != "sortInfo"}
     final_query = build_query(data_id, curr_settings.get("query"))
+    highlight_filter = curr_settings.get("highlightFilter") or False
+    filtered_indexes = []
     data = run_query(
         handle_predefined(data_id),
         final_query,
         global_state.get_context_variables(data_id),
         ignore_empty=True,
+        highlight_filter=highlight_filter,
     )
+    if highlight_filter:
+        data, filtered_indexes = data
     global_state.set_settings(data_id, curr_settings)
 
     total = len(data)
@@ -2535,6 +2601,8 @@ def get_data(data_id):
                     results[sub_range[0]] = dict_merge(
                         {IDX_COL: sub_range[0]}, sub_df[0]
                     )
+                    if highlight_filter and sub_range[0] in filtered_indexes:
+                        results[sub_range[0]]["__filtered"] = True
                 else:
                     [start, end] = sub_range
                     sub_df = (
@@ -2545,11 +2613,16 @@ def get_data(data_id):
                     sub_df = f.format_dicts(sub_df.itertuples())
                     for i, d in zip(range(start, end + 1), sub_df):
                         results[i] = dict_merge({IDX_COL: i}, d)
+                        if highlight_filter and i in filtered_indexes:
+                            results[i]["__filtered"] = True
     columns = [
         dict(name=IDX_COL, dtype="int64", visible=True)
     ] + global_state.get_dtypes(data_id)
     return_data = dict(
-        results=results, columns=columns, total=total, final_query=final_query
+        results=results,
+        columns=columns,
+        total=total,
+        final_query=None if highlight_filter else final_query,
     )
 
     if export:
@@ -2715,6 +2788,46 @@ def get_column_analysis(data_id):
     return jsonify(**analysis.build())
 
 
+@matplotlib_decorator
+def build_correlations_matrix_image(
+    data,
+    is_pps,
+    valid_corr_cols,
+    valid_str_corr_cols,
+    valid_date_cols,
+    dummy_col_mappings,
+    pps_data,
+    code,
+):
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+    plt.figure(figsize=(20, 12))
+    ax0 = plt.gca()
+    cmap = "Blues" if is_pps else "RdYlGn"
+    vmin = 0.0 if is_pps else -1.0
+    sns.heatmap(
+        data.mask(data.apply(lambda x: x.name == x.index)),
+        ax=ax0,
+        vmin=vmin,
+        vmax=1.0,
+        xticklabels=True,
+        yticklabels=True,
+        cmap=cmap,
+    )
+    output = BytesIO()
+    FigureCanvas(ax0.get_figure()).print_png(output)
+    return (
+        valid_corr_cols,
+        valid_str_corr_cols,
+        valid_date_cols,
+        dummy_col_mappings,
+        pps_data,
+        code,
+        output.getvalue(),
+    )
+
+
 def build_correlations_matrix(data_id, is_pps=False, encode_strings=False, image=False):
     curr_settings = global_state.get_settings(data_id) or {}
     data = run_query(
@@ -2778,30 +2891,15 @@ def build_correlations_matrix(data_id, is_pps=False, encode_strings=False, image
     code = "\n".join(code)
     data.index.name = str("column")
     if image:
-        figsize = (20, 12)
-        plt.figure(figsize=figsize)
-        ax0 = plt.gca()
-        cmap = "Blues" if is_pps else "RdYlGn"
-        vmin = 0.0 if is_pps else -1.0
-        sns.heatmap(
-            data.mask(data.apply(lambda x: x.name == x.index)),
-            ax=ax0,
-            vmin=vmin,
-            vmax=1.0,
-            xticklabels=True,
-            yticklabels=True,
-            cmap=cmap,
-        )
-        output = BytesIO()
-        FigureCanvas(ax0.get_figure()).print_png(output)
-        return (
+        return build_correlations_matrix_image(
+            data,
+            is_pps,
             valid_corr_cols,
             valid_str_corr_cols,
             valid_date_cols,
             dummy_col_mappings,
             pps_data,
             code,
-            output.getvalue(),
         )
     return (
         valid_corr_cols,
@@ -3290,6 +3388,7 @@ def get_filter_info(data_id):
             "outlierFilters",
             "predefinedFilters",
             "invertFilter",
+            "highlightFilter",
         ]
     }
     return jsonify(contextVars=ctxt_vars, success=True, **curr_settings)
@@ -3381,6 +3480,17 @@ def chart_export(data_id):
     return send_file(output, filename, content_type)
 
 
+@dtale.route("/chart-export-all/<data_id>")
+@exception_decorator
+def chart_export_all(data_id):
+    params = chart_url_params(request.args.to_dict())
+    params["export_all"] = True
+    output = export_chart(data_id, params)
+    filename = build_chart_filename(params["chart_type"])
+    content_type = "text/html"
+    return send_file(output, filename, content_type)
+
+
 @dtale.route("/chart-csv-export/<data_id>")
 @exception_decorator
 def chart_csv_export(data_id):
@@ -3427,6 +3537,23 @@ def handle_excel_upload(dfs):
 UPLOAD_SEPARATORS = {"comma": ",", "tab": "\t", "colon": ":", "pipe": "|"}
 
 
+def build_csv_kwargs(request):
+    # Set engine to python to auto detect delimiter...
+    kwargs = {"sep": None}
+    sep_type = request.form.get("separatorType")
+
+    if sep_type in UPLOAD_SEPARATORS:
+        kwargs["sep"] = UPLOAD_SEPARATORS[sep_type]
+    elif sep_type == "custom" and request.form.get("separator"):
+        kwargs["sep"] = request.form["separator"]
+        kwargs["sep"] = str(kwargs["sep"]) if PY3 else kwargs["sep"].encode("utf8")
+
+    if "header" in request.form:
+        kwargs["header"] = 0 if request.form["header"] == "true" else None
+
+    return kwargs
+
+
 @dtale.route("/upload", methods=["POST"])
 @exception_decorator
 def upload():
@@ -3436,19 +3563,7 @@ def upload():
         contents = request.files[filename]
         _, ext = os.path.splitext(filename)
         if ext in [".csv", ".tsv"]:
-            # Set engine to python to auto detect delimiter...
-            kwargs = {"sep": None}
-            sep_type = request.form.get("separatorType")
-            if sep_type in UPLOAD_SEPARATORS:
-                kwargs["sep"] = UPLOAD_SEPARATORS[sep_type]
-            elif sep_type == "custom" and request.form.get("separator"):
-                kwargs["sep"] = request.form["separator"]
-                kwargs["sep"] = (
-                    str(kwargs["sep"]) if PY3 else kwargs["sep"].encode("utf8")
-                )
-
-            if "header" in request.form:
-                kwargs["header"] = 0 if request.form["header"] == "true" else None
+            kwargs = build_csv_kwargs(request)
             df = pd.read_csv(
                 StringIO(contents.read().decode()), engine="python", **kwargs
             )
@@ -3715,8 +3830,10 @@ def build_merge():
 
 
 @dtale.route("/missingno/<chart_type>/<data_id>")
+@matplotlib_decorator
 @exception_decorator
 def build_missingno_chart(chart_type, data_id):
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
     df = global_state.get_data(data_id)
     if chart_type == "matrix":
@@ -3746,6 +3863,14 @@ def build_missingno_chart(chart_type, data_id):
 def drop_filtered_rows(data_id):
     curr_settings = global_state.get_settings(data_id) or {}
     final_query = build_query(data_id, curr_settings.get("query"))
+    curr_history = global_state.get_history(data_id) or []
+    curr_history += [
+        (
+            "# drop filtered rows\n"
+            'df = df.query("{}")'.format(final_query.replace("`", ""))
+        )
+    ]
+    global_state.set_history(data_id, curr_history)
     data = run_query(
         handle_predefined(data_id),
         final_query,
@@ -3755,7 +3880,7 @@ def drop_filtered_rows(data_id):
     global_state.set_data(data_id, data)
     global_state.set_dtypes(data_id, build_dtypes_state(data, []))
     curr_predefined = curr_settings.get("predefinedFilters", {})
-    _update_settings(
+    global_state.update_settings(
         data_id,
         dict(
             query="",
@@ -3775,7 +3900,7 @@ def drop_filtered_rows(data_id):
 def move_filters_to_custom(data_id):
     curr_settings = global_state.get_settings(data_id) or {}
     query = build_query(data_id, curr_settings.get("query"))
-    _update_settings(
+    global_state.update_settings(
         data_id,
         {
             "columnFilters": {},

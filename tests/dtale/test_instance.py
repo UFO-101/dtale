@@ -210,16 +210,20 @@ def test_settings_management():
     from dtale.views import DtaleData
 
     with ExitStack() as stack:
+        mock_default_store = stack.enter_context(
+            mock.patch("dtale.global_state._default_store", mock.Mock())
+        )
+        mock_default_store.get_settings.return_value = {}
         mock_get_settings = stack.enter_context(
             mock.patch("dtale.global_state.get_settings")
         )
-        mock_set_settings = stack.enter_context(
-            mock.patch("dtale.global_state.set_settings")
-        )
+
         instance = DtaleData(9999, "user/root/proxy/9999")
         instance.update_settings(range_highlights={})
-        mock_get_settings.assert_called_once_with(9999)
-        mock_set_settings.assert_called_once_with(9999, dict(rangeHighlight={}))
-        mock_get_settings.reset_mock()
+        mock_default_store.get_settings.assert_called_once_with(9999)
+        mock_default_store.set_settings.assert_called_once_with(
+            9999, dict(rangeHighlight={})
+        )
+        mock_default_store.reset_mock()
         instance.get_settings()
         mock_get_settings.assert_called_once_with(9999)

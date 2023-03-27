@@ -15,7 +15,6 @@ from tests import ExitStack
 
 @pytest.mark.unit
 def test_main(unittest):
-
     props = [
         "host",
         "port",
@@ -238,7 +237,6 @@ def test_sqlite_loader():
 def test_arctic_loader_integration(
     mongo_host, library_name, library, chunkstore_name, chunkstore_lib
 ):
-
     node = pd.DataFrame(
         [
             {"date": pd.Timestamp("20000101"), "a": 1, "b": 1.0},
@@ -533,7 +531,7 @@ def test_run():
         assert port == 9999
         assert reaper_on
         assert data_loader is not None
-        assert mock_exit.called_with(0)
+        mock_exit.assert_called_with(0)
 
     with ExitStack() as stack:
         csv_path = os.path.join(os.path.dirname(__file__), "..", "data/test_df.csv")
@@ -561,12 +559,11 @@ def test_run():
         assert port == 9999
         assert reaper_on
         assert data_loader is not None
-        assert mock_exit.called_with(1)
+        mock_exit.assert_called_with(1)
 
 
 @pytest.mark.unit
 def test_custom_cli_loaders():
-
     custom_loader_path = os.path.join(os.path.dirname(__file__), "..", "data")
     os.environ["DTALE_CLI_LOADERS"] = custom_loader_path
 
@@ -611,7 +608,7 @@ def test_loader_retrieval():
             mock.patch("dtale.cli.loaders.get_py2_loader", mock.Mock())
         )
         custom_module_loader()("custom.loaders", "loader.py")
-        assert mock_loader.called_once()
+        mock_loader.assert_called_once()
 
     with ExitStack() as stack:
         stack.enter_context(
@@ -635,7 +632,7 @@ def test_loader_retrieval():
             mock.patch("dtale.cli.loaders.get_py33_loader", mock.Mock())
         )
         custom_module_loader()("custom.loaders", "loader.py")
-        assert mock_loader.called_once()
+        mock_loader.assert_called_once()
 
     with ExitStack() as stack:
         stack.enter_context(
@@ -647,7 +644,7 @@ def test_loader_retrieval():
             mock.patch("dtale.cli.loaders.get_py35_loader", mock.Mock())
         )
         custom_module_loader()("custom.loaders", "loader.py")
-        assert mock_loader.called_once()
+        mock_loader.assert_called_once()
 
 
 @pytest.mark.unit
@@ -674,17 +671,16 @@ def test_loader_retrievers(builtin_pkg):
         )
 
         assert get_py35_loader("custom.loaders", "loader.py") is not None
-        assert mock_importlib_util.spec_from_file_location.called_once()
-        mock_spec = mock_importlib_util.spec_from_file_location.return_value
-        assert mock_importlib_util.module_from_spec.called_once()
-        mock_loader = mock_spec.loader.return_value
-        assert mock_loader.exec_module.called_once()
+        mock_importlib_util.util.spec_from_file_location.assert_called_once()
+        mock_spec = mock_importlib_util.util.spec_from_file_location.return_value
+        mock_importlib_util.util.module_from_spec.assert_called_once()
+        mock_spec.loader.exec_module.assert_called_once()
         assert get_py33_loader("custom.loaders", "loader.py") is not None
-        assert mock_importlib_machinery.SourceFileLoader.called_once()
+        mock_importlib_machinery.SourceFileLoader.assert_called_once()
         mock_sourcefileloader = mock_importlib_machinery.SourceFileLoader.return_value
-        assert mock_sourcefileloader.load_module.called_once()
+        mock_sourcefileloader.load_module.assert_called_once()
         assert get_py2_loader("custom.loaders", "loader.py") is not None
-        assert mock_imp.load_source.called_once()
+        mock_imp.load_source.assert_called_once()
 
 
 @pytest.mark.unit
@@ -695,9 +691,14 @@ def test_streamlit(unittest):
         build_app_mock = stack.enter_context(
             mock.patch("dtale.app.build_app", mock.Mock())
         )
-        start_listening_mock = stack.enter_context(
-            mock.patch("streamlit.server.server.start_listening", mock.Mock())
-        )
+        try:
+            start_listening_mock = stack.enter_context(
+                mock.patch("streamlit.server.server.start_listening", mock.Mock())
+            )
+        except BaseException:
+            start_listening_mock = stack.enter_context(
+                mock.patch("streamlit.web.server.server.start_listening", mock.Mock())
+            )
 
         import dtale.cli.streamlit_script as streamlit_script
 
